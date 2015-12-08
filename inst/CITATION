@@ -16,15 +16,15 @@ citEntry(entry = "Article",
                                    as.person("Gianluca Bontempi"),
                                    as.person("Houtan Noushmehr")
          ),
-         journal = "manuscript in preparation",
+         journal = "NAR conditionally accepted",
          year         = "2015",
          journal      = "Nucleic Acids Research",
          textVersion  =
              paste("Antonio Colaprico, Tiago Chedraoui Silva, Catharina Olsen,",
                    "Luciano Garofano, Claudia Cava, Davide Garolini,",
-                   "Thais Sabedot, Tathiane Malta, Stefano M. Pagnotta,",
+                   "Thais Sabedot, Tathiane M. Malta, Stefano M. Pagnotta,",
                    "Isabella Castiglioni,Michele Ceccarelli, Gianluca Bontempi",
                    "Houtan Noushmehr (2015).",
                    "TCGAbiolinks: An R/Bioconductor package for integrative analysis with TCGA data",
-                   "manuscript in preparation.")
+                   "NAR conditionally accepted.")
 )
