@@ -1,8 +1,14 @@
+  TCGAbiolinks 1.0.4
+----------------------------------------------------------------
+* Improving TCGAquery_clinical to use barcodes.
+* Bug fix in TCGAquery_MatchedCoupledSampleTypes
+* Bug fix in TCGAPrepare: bt.exon_quantification files from IlluminaHiseq_RNASeqV2 platform was not ok.
+
   TCGAbiolinks 1.0.2-1.0.3
 ----------------------------------------------------------------
 * Updating Database
 * Updating citation
-  
+
   TCGAbiolinks 0.99.2
 ----------------------------------------------------------------
   FIRST VERSION - FEATURES
