@@ -357,7 +357,7 @@ GBM_path_subtypes <- TCGAquery_subtype(tumor = "gbm")
 
 LGG_path_subtypes <- TCGAquery_subtype(tumor = "lgg")
 
-LGG_clinic <- TCGAquery_clinic(cancer = "LGG", 
+LGG_clinic <- TCGAquery_clinic(tumor = "LGG", 
                                clinical_data_type = "clinical_patient")
 ```
 
@@ -1263,20 +1263,17 @@ PlatformCancer <- "IlluminaHiSeq_RNASeqV2"
 dataType <- "rsem.genes.results"
 pathCancer <- paste0("../data",cancer)
 
-# Result....Function.....parameters...p1...pn..................................time execution
-
-datQuery <- TCGAquery(tumor = cancer, platform = PlatformCancer, level = "3")  # time = 0.093s
-lsSample <- TCGAquery_samplesfilter(query = datQuery)
+datQuery <- TCGAquery(tumor = cancer, platform = PlatformCancer, level = "3")  lsSample <- TCGAquery_samplesfilter(query = datQuery)
 dataSubt <- TCGAquery_subtype(tumor = cancer)
 dataSmTP <- TCGAquery_SampleTypes(barcode = lsSample$IlluminaHiSeq_RNASeqV2,
                                   typesample = "TP")
 dataSmTN <- TCGAquery_SampleTypes(barcode = lsSample$IlluminaHiSeq_RNASeqV2,
                                   typesample ="NT")
-dataClin <- TCGAquery_clinic(cancer = cancer,
-                             clinical_data_type = "clinical_patient")         # time = 2.606s
+dataClin <- TCGAquery_clinic(tumor = cancer,
+                             clinical_data_type = "clinical_patient") 
 
-            TCGAdownload(data = datQuery, path = pathCancer, type = dataType,
-                         samples =c(dataSmTP,dataSmTN))
+TCGAdownload(data = datQuery, path = pathCancer, 
+             type = dataType, samples = c(dataSmTP,dataSmTN))
 
 dataAssy <- TCGAprepare(query = datQuery, 
                         dir = pathCancer, 
@@ -1284,20 +1281,18 @@ dataAssy <- TCGAprepare(query = datQuery,
                         save = TRUE, 
                         summarizedExperiment = TRUE, 
                         samples = c(dataSmTP,dataSmTN),
-                        filename = paste0(cancer,"_",PlatformCancer,".rda"))  #time = 1178.353s
+                        filename = paste0(cancer,"_",PlatformCancer,".rda")) 
 
 dataPrep <- TCGAanalyze_Preprocessing(object = dataAssy,
-                                      cor.cut = 0.6,
-                                      path = pathCancer,
-                                      cancer = cancer )                      #time = 50.372s
+                                      cor.cut = 0.6)               
 
 dataNorm <- TCGAanalyze_Normalization(tabDF = dataPrep,
                                       geneInfo = geneInfo,
-                                      method = "gcContent")                # time = 407.991s
+                                      method = "gcContent")   
 
 dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
                                   method = "quantile", 
-                                  qnt.cut =  0.25)                       # time = 0.833s
+                                  qnt.cut =  0.25)   
 
 dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,dataSmTN],
                             mat2 = dataFilt[,dataSmTP],
@@ -1305,10 +1300,10 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,dataSmTN],
                             Cond2type = "Tumor",
                             fdr.cut = 0.01 ,
                             logFC.cut = 1,
-                            method = "glmLRT")                          #time = 215.273s
+                            method = "glmLRT")  
  
 ansEA <- TCGAanalyze_EAcomplete(TFname="DEA genes Normal Vs Tumor",
-                                RegulonList = rownames(dataDEGs))    # time = 69.488s 
+                                RegulonList = rownames(dataDEGs)) 
 
 TCGAvisualize_EAbarplot(tf = rownames(ansEA$ResBP),
                         GOBPTab = ansEA$ResBP,
@@ -1324,7 +1319,7 @@ system.time(dataSurv<-TCGAanalyze_SurvivalKM(clinical_patient = dataClin,
                                              Survresult = FALSE,
                                              ThreshTop = 0.67,
                                              ThreshDown = 0.33,
-                                             p.cut = 0.05))               # time = 175.664s
+                                             p.cut = 0.05))   
 
 require(dnet)  # to change
 org.Hs.string <- dRDataLoader(RData = "org.Hs.string")
@@ -1380,7 +1375,7 @@ lsSample <- TCGAquery_samplesfilter(query = datQuery)
 dataSubt <- TCGAquery_subtype(tumor = cancer)
 dataSmTP <- TCGAquery_SampleTypes(barcode = lsSample$IlluminaHiSeq_RNASeqV2,
                                   typesample = "TP")
-dataClin <- TCGAquery_clinic(cancer = cancer,
+dataClin <- TCGAquery_clinic(tumor = cancer,
                              clinical_data_type = "clinical_patient")
 
             TCGAdownload(data = datQuery, path = pathCancer, type = dataType,
@@ -1650,9 +1645,7 @@ idx <- colData(coad.exp.aux)$methylation_subtype %in% c("CIMP.H")
 idx2 <- colData(coad.exp.aux)$methylation_subtype %in% c("CIMP.L")
 
 dataPrep <- TCGAanalyze_Preprocessing(object = coad.exp.aux,
-                                      cor.cut = 0.6,
-                                      cancer = "coad",
-                                      path=".")
+                                      cor.cut = 0.6)
 
 dataNorm <- TCGAanalyze_Normalization(tabDF = dataPrep,
                                       geneInfo = geneInfo,

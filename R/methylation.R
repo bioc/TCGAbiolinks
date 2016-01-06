@@ -183,34 +183,35 @@ TCGAanalyze_survival <- function(data,
         labels <- sapply(levels(data$type),label.add.n)
     }
 
-    with(data,{
-        surv <- surv + scale_colour_manual(name = legend,
-                                           labels = labels,
-                                           values=color)
 
-        with(surv,{
-            surv <- surv + geom_point(aes(colour = group),
-                                      shape = 3,size = 2)
-            surv <- surv + guides(linetype = FALSE) +
-                scale_y_continuous(labels = scales::percent) +
-                theme_bw() +
-                theme(panel.border = element_blank(),
-                      panel.grid.major = element_blank(),
-                      panel.grid.minor = element_blank(),
-                      axis.line = element_line(colour = "black"),
-                      legend.key = element_rect(colour = 'white'),
-                      legend.justification=c(1,1), legend.position=c(1,1),
-                      legend.text = element_text(size = 18),
-                      legend.title = element_text(size = 18),
-                      axis.text= element_text(size = 22),
-                      axis.title.x= element_text(size = 22),
-                      axis.title.y= element_text(size = 22))
+    surv <- surv + scale_colour_manual(name = legend,
+                                       labels = labels,
+                                       values=color)
+    surv <- surv + geom_point(aes(colour = group),
+                              shape = 3,size = 2)
+    surv <- surv + guides(linetype = FALSE) +
+        scale_y_continuous(labels = scales::percent) +
+        theme_bw() +
+        theme(#panel.border = element_blank(),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.border = element_rect(colour = "black", size= 1.5),
+            legend.key = element_rect(colour = 'white'),
+            legend.justification=c(1,1),
+            #axis.line = element_line(colour = "black"),
+            legend.background = element_rect(colour = "black"),
+            #linetype = "dashed"),
+            #legend.background = element_rect(colour = "white"),
+            legend.position=c(1,1),
+            plot.title = element_text(size = 20),
+            legend.text = element_text(size = 16),
+            legend.title = element_text(size = 16),
+            axis.text= element_text(size = 16),
+            axis.title.x= element_text(size = 16),
+            #legend.position="top",
+            axis.title.y= element_text(size = 16))
 
-
-        })
-
-    })
-    ggsave(surv, filename = filename, width = width, height = height)
+    ggsave(surv, filename = filename, width = width, height = height, dpi = 600)
 }
 #' @title Mean methylation boxplot
 #' @description
@@ -242,19 +243,21 @@ TCGAanalyze_survival <- function(data,
 #' @return Save the pdf survival plot
 #' @examples
 #' nrows <- 200; ncols <- 21
-#' counts <- matrix(runif(nrows * ncols, 1, 1e4), nrows)
+#' counts <- matrix(runif(nrows * ncols, 0, 1), nrows)
 #' rowRanges <- GenomicRanges::GRanges(rep(c("chr1", "chr2"), c(50, 150)),
 #'                    IRanges::IRanges(floor(runif(200, 1e5, 1e6)), width=100),
 #'                     strand=sample(c("+", "-"), 200, TRUE),
 #'                     feature_id=sprintf("ID%03d", 1:200))
 #'colData <- S4Vectors::DataFrame(Treatment=rep(c("ChIP", "Input","Other"), 7),
 #'                     row.names=LETTERS[1:21],
-#'                     group=rep(c("group1","group2","group3"),c(7,7,7)))
+#'                     group=rep(c("group1","group2","group3"),c(7,7,7)),
+#'                     subgroup=rep(c("subgroup1","subgroup2","subgroup3"),7))
 #'data <- SummarizedExperiment::SummarizedExperiment(
 #'          assays=S4Vectors::SimpleList(counts=counts),
 #'          rowRanges=rowRanges,
 #'          colData=colData)
 #' TCGAvisualize_meanMethylation(data,groupCol  = "group")
+#' TCGAvisualize_meanMethylation(data,groupCol  = "group", subgroupCol="subgroup")
 TCGAvisualize_meanMethylation <- function(data,
                                           groupCol=NULL,
                                           subgroupCol=NULL,
@@ -339,17 +342,16 @@ TCGAvisualize_meanMethylation <- function(data,
                 environment = .e) +
         geom_boxplot(aes(fill = factor(df$groups)),
                      notchwidth = 0.25, outlier.shape = NA)
-    if(!is.null(subgroupCol)){
+
+    if (!is.null(subgroupCol)){
 
         p <- p + geom_jitter(aes(shape = subgroups,
                                  size =  subgroups),
-                             height = 0,
                              position = position_jitter(width = 0.1),
                              size = 3)
     } else {
-        p <- p +  geom_jitter(height = 0,
-                              position = position_jitter(width = 0.1),
-                              size = 3)
+        p <- p + geom_jitter(position = position_jitter(width = 0.1),
+                             size = 3)
     }
 
     p <- p + scale_fill_manual(values = color,labels = labels, name = group.legend)
@@ -392,6 +394,7 @@ TCGAvisualize_meanMethylation <- function(data,
 }
 
 #' @title Calculate pvalues
+#' @description Calculate pvalues using wilcoxon test
 #' @details
 #'    Verify if the data is significant between two groups. For the methylation
 #'    we search for probes that have a difference in the mean methylation and
@@ -546,12 +549,12 @@ calculate.pvalues <- function(data,
     return(data)
 }
 
-#' @title Plot volcano plot for DNA methylation or expression
+#' @title Creates a volcano plot for DNA methylation or expression
+#' @description Creates a volcano plot from the
+#' expression and methylation analysis.
 #' @details
 #'    Creates a volcano plot from the expression and methylation analysis.
-#'
 #'    Please see the vignette for more information
-#'
 #'    Observation: This function automatically is called by TCGAanalyse_DMR
 #' @param x x-axis data
 #' @param y y-axis data
