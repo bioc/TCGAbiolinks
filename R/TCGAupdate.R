@@ -255,7 +255,7 @@ TCGAUpdate <- function(){
     use_data(platform.table, disease.table, tcga.db, center.table,
              DAVID_BP_matrix,DAVID_CC_matrix,DAVID_MF_matrix,
              EAGenes,gene.location,listEA_pathways,
-             lgg.subtype, gbm.subtype, luad.subtype,
+             lgg.gbm.subtype, luad.subtype,
              stad.subtype, brca.subtype, coad.subtype,
              internal = TRUE,overwrite = TRUE)
 }
@@ -289,3 +289,4 @@ get.GRCh.bioMart <- function(genome="hg19") {
 
     return(gene.location)
 }
+

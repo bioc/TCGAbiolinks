@@ -88,7 +88,7 @@ TCGAprepare <- function(query,
             platform <- "humanMethylation"
         } else {
             message("Sorry! But, for the moment, we can only prepare on type of
-                    platform per call")
+                platform per call")
             return(NULL)
         }
     } else {
@@ -257,7 +257,7 @@ TCGAprepare <- function(query,
         files <- files[idx]
         for (i in seq_along(files)) {
             data <- read.table(files[i], fill = TRUE,
-                               comment.char = "#", header = TRUE, sep = "\t")
+                               comment.char = "#", header = TRUE, sep = "\t", quote="")
             if (i == 1) {
                 df <- data
             } else {
@@ -797,17 +797,17 @@ TCGAprepare <- function(query,
         return(rse)
     }
     return(df)
-    }
+}
 
 #' @title Prepare the data for ELEMR package
 #' @description Prepare the data for ELEMR package
 #' @return Matrix prepared for fetch.mee function
 #' @param data A data frame or summarized experiment from TCGAPrepare
-#' @param platform platform of the data
+#' @param platform platform of the data. Example: "HumanMethylation450", "IlluminaHiSeq_RNASeqV2"
 #' @param met.na.cut Define the percentage of NA that the line should have to
 #'  remove the probes for humanmethylation platforms.
 #' @param save Save object? Default: FALSE.
-#' Names of the files will be: "Exp_elmer.rda" and   "Met_elmer.rda"
+#' Names of the files will be: "Exp_elmer.rda" (object Exp) and "Met_elmer.rda" (object Met)
 #' @export
 #' @examples
 #' df <- data.frame(runif(200, 1e5, 1e6),runif(200, 1e5, 1e6))
@@ -846,10 +846,10 @@ TCGAprepare_elmer <- function(data,
     if (grepl("humanmethylation", platform, ignore.case = TRUE)) {
         message("============ Pre-pocessing methylation data =============")
         if (class(data) == class(data.frame())){
-            msg <- paste0("1 - Removing Columns: \n  * Gene_Symbol  \n",
-                          "  * Chromosome  \n  * Genomic_Coordinate")
-            message(msg)
-            data <- subset(data,select = 4:ncol(data))
+        msg <- paste0("1 - Removing Columns: \n  * Gene_Symbol  \n",
+                      "  * Chromosome  \n  * Genomic_Coordinate")
+        message(msg)
+        data <- subset(data,select = 4:ncol(data))
         }
         if(typeof(data) == typeof(SummarizedExperiment())){
             data <- assay(data)
@@ -1013,3 +1013,4 @@ mutation.genes <- function(tumor = NULL, data=NULL){
     }
     return(df)
 }
+
