@@ -1255,25 +1255,39 @@ library(TCGAbiolinks)
 ```
 
 ## Case study n. 1: Pan Cancer downstream analysis BRCA
+## Case study n. 1: Pan Cancer downstream analysis BRCA
+In this case study, we downloaded 114 normal and 1097 breast cancer (BRCA) 
+samples using TCGAquery, TCGAdownload and TCGAprepare.  
 
 ```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
 library(TCGAbiolinks)
+
+# defining common parameters
 cancer <- "BRCA"
 PlatformCancer <- "IlluminaHiSeq_RNASeqV2"
 dataType <- "rsem.genes.results"
 pathCancer <- paste0("../data",cancer)
 
-datQuery <- TCGAquery(tumor = cancer, platform = PlatformCancer, level = "3")  lsSample <- TCGAquery_samplesfilter(query = datQuery)
+datQuery <- TCGAquery(tumor = cancer, platform = PlatformCancer, level = "3")  
+lsSample <- TCGAquery_samplesfilter(query = datQuery)
+
+# get subtype information
 dataSubt <- TCGAquery_subtype(tumor = cancer)
+
+# Which samples are Primary Solid Tumor
 dataSmTP <- TCGAquery_SampleTypes(barcode = lsSample$IlluminaHiSeq_RNASeqV2,
                                   typesample = "TP")
+# Which samples are Solid Tissue Normal
 dataSmTN <- TCGAquery_SampleTypes(barcode = lsSample$IlluminaHiSeq_RNASeqV2,
                                   typesample ="NT")
+# get clinical data
 dataClin <- TCGAquery_clinic(tumor = cancer,
                              clinical_data_type = "clinical_patient") 
 
-TCGAdownload(data = datQuery, path = pathCancer, 
-             type = dataType, samples = c(dataSmTP,dataSmTN))
+TCGAdownload(data = datQuery, 
+             path = pathCancer, 
+             type = dataType,
+             samples =c(dataSmTP,dataSmTN))
 
 dataAssy <- TCGAprepare(query = datQuery, 
                         dir = pathCancer, 
@@ -1282,13 +1296,21 @@ dataAssy <- TCGAprepare(query = datQuery,
                         summarizedExperiment = TRUE, 
                         samples = c(dataSmTP,dataSmTN),
                         filename = paste0(cancer,"_",PlatformCancer,".rda")) 
+```
+
+Using `TCGAnalyze_DEA`, we identified 3,390 differentially expression genes (DEG) (log 
+fold change >=1 and FDR < 1%) between 114 normal and 1097 BRCA samples. In 
+order to understand the underlying biological process from DEGs we performed an 
+enrichment analysis using `TCGAnalyze_EA_complete` function.  
+
+```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
 
 dataPrep <- TCGAanalyze_Preprocessing(object = dataAssy,
-                                      cor.cut = 0.6)               
+                                      cor.cut = 0.6)                      
 
 dataNorm <- TCGAanalyze_Normalization(tabDF = dataPrep,
                                       geneInfo = geneInfo,
-                                      method = "gcContent")   
+                                      method = "gcContent")                
 
 dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
                                   method = "quantile", 
@@ -1301,9 +1323,17 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,dataSmTN],
                             fdr.cut = 0.01 ,
                             logFC.cut = 1,
                             method = "glmLRT")  
- 
+
+
+```
+
+TCGAbiolinks outputs bar chart with the number of genes for the main categories of 
+three ontologies (GO:biological process, GO:cellular component, and GO:molecular 
+function, respectively). 
+
+```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
 ansEA <- TCGAanalyze_EAcomplete(TFname="DEA genes Normal Vs Tumor",
-                                RegulonList = rownames(dataDEGs)) 
+                                RegulonList = rownames(dataDEGs))  
 
 TCGAvisualize_EAbarplot(tf = rownames(ansEA$ResBP),
                         GOBPTab = ansEA$ResBP,
@@ -1312,14 +1342,46 @@ TCGAvisualize_EAbarplot(tf = rownames(ansEA$ResBP),
                         PathTab = ansEA$ResPat,
                         nRGTab = rownames(dataDEGs),
                         nBar = 20)
+```
 
-system.time(dataSurv<-TCGAanalyze_SurvivalKM(clinical_patient = dataClin,
-                                             dataGE = dataFilt,
-                                             Genelist = rownames(dataDEGs),
-                                             Survresult = FALSE,
-                                             ThreshTop = 0.67,
-                                             ThreshDown = 0.33,
-                                             p.cut = 0.05))   
+
+The figure resulted from the code above is shown below.
+```{r, fig.width=6, fig.height=4, echo = FALSE, fig.align="center",hide=TRUE, message=FALSE,warning=FALSE}
+library(png)
+library(grid)
+img <- readPNG("case1_EA.png")
+grid.raster(img)
+```
+
+
+The Kaplan-Meier analysis was used to compute survival univariate curves, and  
+log-Ratio test was computed to assess the statistical significance by using 
+TCGAanalyze_SurvivalKM function; starting with 3,390 DEGs genes we found 555 
+significantly genes with p.value <0.05. 
+
+```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
+dataSurv <- TCGAanalyze_SurvivalKM(clinical_patient = dataClin,
+                                   dataGE = dataFilt,
+                                   Genelist = rownames(dataDEGs),
+                                   Survresult = FALSE,
+                                   ThreshTop = 0.67,
+                                   ThreshDown = 0.33,
+                                   p.cut = 0.05)
+```
+
+Cox-regression analysis was used to compute survival multivariate curves, and cox 
+p-value was computed to assess the statistical significance by using 
+TCGAnalyze_SurvivalCoxNET function. Survival multivariate analysis found 160 
+significantly genes according to the cox p-value FDR 5.00e-02. From DEGs that we 
+found to correlate  significantly with survival by both univariate and multivariate 
+analyses we analyzed the following network.
+
+The interactome network graph was generated using STRING.,org.Hs.string version 
+10 (Human functional protein association network). The network graph was resized 
+by dnet package considering only multivariate survival genes, with strong interaction 
+(threshold = 700) we obtained a subgraphsub graph of 24 nodes and 31 edges.
+
+```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
 
 require(dnet)  # to change
 org.Hs.string <- dRDataLoader(RData = "org.Hs.string")
@@ -1330,35 +1392,15 @@ TabCoxNet <- TCGAvisualize_SurvivalCoxNET(dataClin,
                                           scoreConfidence = 700,
                                           org.Hs.string = org.Hs.string,
                                           titlePlot = "Case Study n.1 dnet")
-
-# Convert images from pdf to png.
-library(animation)
-ani.options(outdir = getwd())
-
-im.convert("TCGAvisualize_EAbarplot_Output.pdf", 
-           output = "case1_EA.png", 
-           extra.opts="-density 150")
-
-im.convert("SurvivalCoxNETOutput.pdf", 
-           output = "case1_dnet.png", 
-           extra.opts="-density 150")
 ```
 
-The figures resulted from the code above are shown below.
-```{r, fig.width=6, fig.height=4, echo = FALSE, fig.align="center",hide=TRUE, message=FALSE,warning=FALSE}
-library(png)
-library(grid)
-img <- readPNG("case1_EA.png")
-grid.raster(img)
-```
-
+The figure resulted from the code above is shown below.
 ```{r, fig.width=6, fig.height=4, echo = FALSE, fig.align="center",hide=TRUE, message=FALSE,warning=FALSE}
 library(png)
 library(grid)
 img <- readPNG("case1_dnet.png")
 grid.raster(img)
 ```
-
 ## Case study n. 2: Pan Cancer downstream analysis LGG
 
 ```{r,eval=FALSE,echo=TRUE,message=FALSE,warning=FALSE}
