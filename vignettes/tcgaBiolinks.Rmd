@@ -364,7 +364,7 @@ LGG_clinic <- TCGAquery_clinic(tumor = "LGG",
 A subset of the lgg subytpe is shown below:
 
 ```{r, eval = TRUE, echo = FALSE}
-knitr::kable(lgg.subtype[1:10,c(1,2,3,4)], digits = 2, 
+knitr::kable(lgg.gbm.subtype[1:10,c(1,2,3,4)], digits = 2, 
              caption = "Table common samples among platforms from TCGAquery",
              row.names = TRUE)
 ```
