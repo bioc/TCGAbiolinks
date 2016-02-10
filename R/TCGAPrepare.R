@@ -88,7 +88,7 @@ TCGAprepare <- function(query,
             platform <- "humanMethylation"
         } else {
             message("Sorry! But, for the moment, we can only prepare on type of
-                platform per call")
+                    platform per call")
             return(NULL)
         }
     } else {
@@ -258,10 +258,17 @@ TCGAprepare <- function(query,
         for (i in seq_along(files)) {
             data <- read.table(files[i], fill = TRUE,
                                comment.char = "#", header = TRUE, sep = "\t", quote="")
+
+            # some center has different ways to name the collums
+            idx.pos <- grep("Start_position", colnames(data))
+            colnames(data)[idx.pos] <- "Start_Position"
+            idx.pos <- grep("End_position", colnames(data))
+            colnames(data)[idx.pos] <- "End_Position"
+
             if (i == 1) {
                 df <- data
             } else {
-                df <- rbind(df, data)
+                df <-  plyr::rbind.fill(df, data)
             }
             setTxtProgressBar(pb, i)
         }
@@ -797,7 +804,7 @@ TCGAprepare <- function(query,
         return(rse)
     }
     return(df)
-}
+    }
 
 #' @title Prepare the data for ELEMR package
 #' @description Prepare the data for ELEMR package
@@ -846,10 +853,10 @@ TCGAprepare_elmer <- function(data,
     if (grepl("humanmethylation", platform, ignore.case = TRUE)) {
         message("============ Pre-pocessing methylation data =============")
         if (class(data) == class(data.frame())){
-        msg <- paste0("1 - Removing Columns: \n  * Gene_Symbol  \n",
-                      "  * Chromosome  \n  * Genomic_Coordinate")
-        message(msg)
-        data <- subset(data,select = 4:ncol(data))
+            msg <- paste0("1 - Removing Columns: \n  * Gene_Symbol  \n",
+                          "  * Chromosome  \n  * Genomic_Coordinate")
+            message(msg)
+            data <- subset(data,select = 4:ncol(data))
         }
         if(typeof(data) == typeof(SummarizedExperiment())){
             data <- assay(data)
@@ -1013,4 +1020,3 @@ mutation.genes <- function(tumor = NULL, data=NULL){
     }
     return(df)
 }
-
