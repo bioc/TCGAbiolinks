@@ -1255,7 +1255,6 @@ library(TCGAbiolinks)
 ```
 
 ## Case study n. 1: Pan Cancer downstream analysis BRCA
-## Case study n. 1: Pan Cancer downstream analysis BRCA
 In this case study, we downloaded 114 normal and 1097 breast cancer (BRCA) 
 samples using TCGAquery, TCGAdownload and TCGAprepare.  
 
