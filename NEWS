@@ -1,3 +1,7 @@
+  TCGAbiolinks 1.0.7
+----------------------------------------------------------------
+* Bugfix in TCGAanalyze_Preprocessing: if there were outliers it was subseeting wrongly.
+
   TCGAbiolinks 1.0.6
 ----------------------------------------------------------------
 * Bug fix: preparing the data for "IlluminaGA_DNASeq" platform and

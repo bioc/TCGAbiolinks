@@ -3,7 +3,6 @@
 ### Installation ###
 ```R
 source("http://bioconductor.org/biocLite.R")
-useDevel()
 biocLite("TCGAbiolinks")
 ```
 
