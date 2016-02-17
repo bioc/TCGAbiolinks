@@ -14,7 +14,7 @@
 #' (maximum cluster number to evaluate.). Each element is a list containing
 #' consensusMatrix (numerical matrix), consensusTree (hclust), consensusClass
 #' (consensus class asssignments). ConsensusClusterPlus also produces images.
-TCGAanalyze_Clustering<- function(tabDF, method,  methodHC = "ward.D2"){
+TCGAanalyze_Clustering <- function(tabDF, method,  methodHC = "ward.D2"){
 
     if( method == "hclust"){
         ans <- hclust(ddist <- dist(tabDF), method = methodHC)
@@ -32,6 +32,7 @@ TCGAanalyze_Clustering<- function(tabDF, method,  methodHC = "ward.D2"){
 
     return(ans)
 }
+
 
 #' @title Array Array Intensity correlation (AAIC) and correlation boxplot to define outlier
 #' @description TCGAanalyze_Preprocessing perform Array Array Intensity correlation (AAIC).
@@ -127,6 +128,7 @@ TCGAanalyze_Preprocessing<- function(object,
 
     samplesCor <- rowMeans(c)
     objectWO <-  assay(object,"raw_counts")[, samplesCor > cor.cut]
+    #colnames(objectWO) <- colData(object)$sample[,samplesCor > cor.cut]
 
     dev.off()
     return(objectWO)
@@ -718,13 +720,11 @@ TCGAanalyze_LevelTab <- function(FC_FDR_table_mRNA,typeCond1,typeCond2,
     MeanTumor <- matrix(0,nrow(TF_enriched),1)
     MeanDiffTumorNormal <- matrix(0,nrow(TF_enriched),1)
 
-
     for (i in 1:nrow(TF_enriched)) {
-        #print(paste(i, "of", nrow(TF_enriched),TF_enriched[i]))
-        TableLevel[i,typeCond1] <- mean(TableCond1[rownames(TableCond1) %in%
-                                                       TF_enriched[i] , ])
-        TableLevel[i,typeCond2] <- mean(TableCond2[rownames(TableCond2) %in%
-                                                       TF_enriched[i] , ])
+        TableLevel[i,typeCond1] <- mean(as.numeric(TableCond1[rownames(TableCond1) %in%
+                                                       TF_enriched[i] , ]))
+        TableLevel[i,typeCond2] <- mean(as.numeric(TableCond2[rownames(TableCond2) %in%
+                                                       TF_enriched[i] , ]))
     }
 
 
@@ -980,4 +980,48 @@ TCGAanalyze_DEA_Affy <- function(AffySet, FC.cut = 0.01){
     }
 
     return(CompleteList)
+}
+
+#' @title Identifying Segment Gain Or Loss (SGOL)
+#' @description Identifying Segment Gain Or Loss (SGOL) using findMCR package
+#' Example:
+#' query <- TCGAquery("acc","genome_wide_snp_6", level = 3)
+#' TCGAdownload(query,"trash")
+#' data <- TCGAprepare(query,"trash",  type = "nocnv_hg19")
+#' @param data  Copy number data from TCGAPrepare
+#' @param threshold  Gain/Loss threshold
+#' @importFrom CNTools CNSeg getRS
+#' @importFrom cghMCR plot SGOL gol
+#' @examples
+#' \dontrun{
+#'  query <- TCGAquery("acc", platform = "genome_wide_snp_6", level = 3)
+#'  TCGAdownload(query,path = "trash", samples = "TCGA-OR-A5JH-01A-11D-A309-01")
+#'  segment_data <- TCGAprepare(query, dir = "trash",  type = "nocnv_hg19",
+#'                     samples = "TCGA-OR-A5JH-01A-11D-A309-01")
+#'  TCGAanalyze_copynumber(segment_data)
+#' }
+#' @export
+#' @return List of list with tables in 2 by 2 comparison
+#' of the top-ranked genes from a linear model fitted by DEA's limma
+TCGAanalyze_copynumber <- function(data = NULL,  threshold = 0){
+
+    set.seed(1234)
+    data(geneInfo,  package = "CNTools")
+    colnames(data) <- c("ID","chrom","loc.start","loc.end","num.mark","seg.mean")
+    data <- CNSeg(data)
+    convertedData <- getRS(data,
+                           by = "gene",
+                           imput = FALSE,
+                           XY = FALSE,
+                           geneMap = geneInfo,
+                           what = "median")
+    SGOLScores <- SGOL(convertedData, threshold = c(-0.2, 0.2), method = sum)
+
+    plot(SGOLScores)
+
+    ret <- SGOLScores[union(which(as.numeric(unlist(gol(SGOLScores[, "gains"]))) >=
+                                         threshold),
+                                 which(as.numeric(unlist(gol(SGOLScores[, "losses"]))) <=
+                                           -threshold)),]
+    return(ret)
 }
