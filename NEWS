@@ -1,3 +1,8 @@
+TCGAbiolinks 1.0.9
+---------------------------------------------------------------
+* Bug fix: logFC result from TCGAanalyze_DEA for method "glmLRT" was
+considerent the alphabetical order of groups, which migth induce the user to error
+
 TCGAbiolinks 1.0.8
 ----------------------------------------------------------------
 *  Improvement: TCGADownload checks for data integrity.
