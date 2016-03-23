@@ -44,6 +44,7 @@
 #' DEFAULT: FALSE. (For the moment only working for methylation data)
 #' @param summarizedExperiment Output as SummarizedExperiment?
 #' Default: \code{FALSE}
+#' @param add.subtype Add subtype information from tcgaquery_subtype? Default: \code{FALSE}
 #' @examples
 #' sample <- "TCGA-06-0939-01A-01D-1228-05"
 #' query <- TCGAquery(tumor = "GBM",samples = sample, level = 3)
@@ -73,7 +74,8 @@ TCGAprepare <- function(query,
                         filename = NULL,
                         add.mutation.genes = FALSE,
                         reannotate = FALSE,
-                        summarizedExperiment = TRUE){
+                        summarizedExperiment = TRUE,
+                        add.subtype = FALSE){
 
     if (is.null(dir)) {
         message("Argument dir is NULL. Plese provide the directory
@@ -106,15 +108,6 @@ TCGAprepare <- function(query,
     idx <- grep("MANIFEST|README|CHANGES|DESCRIPTION|DATA_USE",files)
     if (length(idx) > 0) {
         files <- files[-idx]
-    }
-
-    # Filter by type
-    if (!is.null(type)) {
-        files <- files[grep(type,files)]
-        if(length(files) == 0){
-            message("No files of that type found")
-            return(NULL)
-        }
     }
 
     # Filter by samples
@@ -175,7 +168,7 @@ TCGAprepare <- function(query,
                                  Gene_Symbol = df$Gene_Symbol)
 
             names(rowRanges) <- as.character(df$Composite.Element.REF)
-            colData <-  colDataPrepare(colnames(df)[5:ncol(df)],query)
+            colData <-  colDataPrepare(colnames(df)[5:ncol(df)],query,add.subtype = add.subtype)
             assay <- data.matrix(subset(df,select = c(5:ncol(df))))
 
             if(reannotate){
@@ -296,6 +289,22 @@ TCGAprepare <- function(query,
 
     if (tolower(platform) == "illuminaga_rnaseq" ||
         tolower(platform) == "illuminahiseq_rnaseq") {
+
+
+        if(is.null(type) || (type != "exon.quantification" &&
+                             type != "spljxn.quantification" &&
+                             type != "gene.quantification")
+        ){
+            msg <- paste0("Plase select a type. \n Possibilities:\n",
+                          " = gene.quantification\n",
+                          " = spljxn.quantification\n",
+                          " = exon.quantification\n"
+            )
+            message(msg)
+            return()
+        }
+
+        files <- files[grep(type,files)]
         # Barcode in the name
         regex <- paste0("[:alnum:]{4}-[:alnum:]{2}-[:alnum:]{4}",
                         "-[:alnum:]{3}-[:alnum:]{3}-[:alnum:]{4}-[:alnum:]{2}")
@@ -374,7 +383,7 @@ TCGAprepare <- function(query,
                     RPKM=data.matrix(subset(df,select=seq(4,ncol(df),3))))
 
             }
-            colData <- colDataPrepare(as.character(barcode), query)
+            colData <- colDataPrepare(as.character(barcode), query,add.subtype = add.subtype)
             rse <- SummarizedExperiment(assays=assays,
                                         rowRanges=rowRanges,
                                         colData=colData)
@@ -431,7 +440,7 @@ TCGAprepare <- function(query,
             regex <- paste0("[:alnum:]{4}-[:alnum:]{2}-[:alnum:]{4}",
                             "-[:alnum:]{3}-[:alnum:]{3}-[:alnum:]{4}-[:alnum:]{2}")
             barcode <- unique(unlist(str_match_all(colnames(merged),regex)))
-            colData <- colDataPrepare(barcode,query)
+            colData <- colDataPrepare(barcode,query,add.subtype = add.subtype)
 
             assays <- SimpleList(raw_counts=data.matrix(
                 subset(merged,select=seq(3,2+length(barcode)))
@@ -461,6 +470,11 @@ TCGAprepare <- function(query,
         df <- df[-1,]
 
         if(summarizedExperiment){
+            message("===================================================================================")
+            message(" As we can't map some miRNA to genomic positions this step might loose some rows .")
+            message(" Please, for all rows run TCGAprepare with summarizedExperiment=F")
+            message("====================================================================================")
+
             if(grepl("HG-U133_Plus_2|agilent",platform, ignore.case = TRUE)){
                 suppressWarnings(
                     df$external_gene_name <-  alias2SymbolTable(df$`Hybridization REF`)
@@ -489,7 +503,7 @@ TCGAprepare <- function(query,
             regex <- paste0("[:alnum:]{4}-[:alnum:]{2}-[:alnum:]{4}",
                             "-[:alnum:]{3}-[:alnum:]{3}-[:alnum:]{4}-[:alnum:]{2}")
             barcode <- unique(unlist(str_match_all(colnames(merged),regex)))
-            colData <- colDataPrepare(barcode,query)
+            colData <- colDataPrepare(barcode,query,add.subtype = add.subtype)
 
             suppressWarnings(
                 assays <- SimpleList(raw_counts=data.matrix(
@@ -499,6 +513,11 @@ TCGAprepare <- function(query,
             rse <- SummarizedExperiment(assays=assays,
                                         rowRanges=rowRanges,
                                         colData=colData)
+        } else {
+            df <- as.data.frame(df)
+            rownames(df) <- df[,1]
+            df[,1] <- NULL
+            df <- data.matrix(df)
         }
 
     }
@@ -639,7 +658,7 @@ TCGAprepare <- function(query,
                             "-[:alnum:]{3}-[:alnum:]{3}-[:alnum:]{4}-[:alnum:]{2}")
 
             barcode <- unique(unlist(str_match_all(colnames(df),regex)))
-            colData <- colDataPrepare(barcode,query)
+            colData <- colDataPrepare(barcode,query,add.subtype = add.subtype)
 
             rse <- SummarizedExperiment(assays=assays,
                                         rowRanges=rowRanges,
@@ -711,21 +730,28 @@ TCGAprepare <- function(query,
     }
     if (grepl("genome_wide_snp_6",tolower(platform))) {
 
-
-        while(!(type %in% c("nocnv_hg18","nocnv_hg19","cnv_hg18","cnv_hg19"))){
+        while(!(type %in% c("nocnv_hg18","nocnv_hg19","cnv_hg18","cnv_hg19",
+                            "nocnv_hg18.seg","hg18.seg","hg19.seg","nocnv_hg19.seg"))){
             type <- readline(
                 paste("Which type do you want?",
                       "(Options: nocnv_hg19,nocnv_hg18,cnv_hg18,cnv_hg19, cancel)  ")
             )
             if(type == "cancel") return(NULL)
         }
-        if(type == "nocnv_hg18") regex <- "nocnv_hg18"
-        if(type == "cnv_hg18") regex <- "[^no]cnv_hg18"
-        if(type == "nocnv_hg19") regex <- "nocnv_hg19"
-        if(type == "cnv_hg19") regex <- "[^no]cnv_hg19"
+
+        if(type == "nocnv_hg18" | type == "nocnv_hg18.seg") regex <- "nocnv_hg18"
+        if(type == "cnv_hg18" | type == "hg18.seg") regex <- "[^nocnv_]hg18.seg"
+        if(type == "nocnv_hg19" | type == "nocnv_hg19.seg") regex <- "nocnv_hg19"
+        if(type == "cnv_hg19" | type == "hg19.seg") regex <- "[^nocnv_]hg19.seg"
+
+        files <- files[grep(regex,files)]
+
+        if(length(files) == 0){
+            message("No files of that type found")
+            return(NULL)
+        }
 
         idx <- grep(regex, files)
-
         if (length(idx) > 0){
             files <- files[idx]
         } else {
@@ -819,7 +845,7 @@ TCGAprepare <- function(query,
 #' @examples
 #' df <- data.frame(runif(200, 1e5, 1e6),runif(200, 1e5, 1e6))
 #' rownames(df) <- sprintf("?|%03d", 1:200)
-#' TCGAprepare_elmer(df,platform="IlluminaHiSeq_RNASeqV2")
+#' df <- TCGAprepare_elmer(df,platform="IlluminaHiSeq_RNASeqV2")
 TCGAprepare_elmer <- function(data,
                               platform,
                               met.na.cut = 0.2,
