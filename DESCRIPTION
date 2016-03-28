@@ -61,6 +61,7 @@ Imports:
     GenomicFeatures,
     TxDb.Hsapiens.UCSC.hg19.knownGene,
     limma,
+    knitr,
     devtools,
     genefilter,
     ConsensusClusterPlus,
@@ -92,7 +93,6 @@ Suggests:
     testthat,
     png,
     BiocStyle,
-    knitr,
     rmarkdown
 VignetteBuilder: knitr
 LazyData: true
