@@ -972,42 +972,43 @@ TCGAquery_samplesfilter <- function(query) {
 TCGAquery_maf <- function(tumor = NULL, center = NULL, archive.name = NULL){
     message("Getting maf tables")
     message("Source: https://wiki.nci.nih.gov/display/TCGA/TCGA+MAF+Files")
-    message("You can also use TCGAquery/TCGAdownload for this:")
-    message("---------------------------------------------------------")
-    message("query <- TCGAquery(tumor,'IlluminaGA_DNASeq', level = 2)")
-    message("TCGAdownload(query,path = '.', type = 'maf' )")
-    message("---------------------------------------------------------")
 
     tables <- read_html("https://wiki.nci.nih.gov/display/TCGA/TCGA+MAF+Files")
-
     tables <-  html_table(tables)
 
     # Table one is junk
     tables[[1]] <- NULL
 
-    # get which tables are from the tumor
-    idx <- which(mapply(function(x) {
-        any(grepl(tumor,(x[,1]), ignore.case = TRUE))
-    },tables) == TRUE)
-    df <- lapply(idx,function(x) tables[x])
-
+    if(!is.null(tumor)){
+       # get which tables are from the tumor
+       idx <- which(mapply(function(x) {
+          any(grepl(tumor,(x[,1]), ignore.case = TRUE))
+       },tables) == TRUE)
+       df <- lapply(idx,function(x) tables[x])
+    }
     # merge the data frame in the lists
     if(length(idx) > 1) {
         df <- Reduce(function(...) merge(..., all=TRUE), df)
+     }  else if(length(idx) == 1) {
+            df <- Reduce(function(...) merge(..., all=TRUE), df)
+            df <- df[[1]]
+            colnames(df) <- gsub(" ",".", colnames(df))
+            colnames(df) <- gsub(":",".", colnames(df))
     } else {
-        df <- unlist(df)
+	message("Sorry, no maf found")
+        return (NULL)
     }
 
     # Remove obsolete/protected
     df <- subset(df, df$Deploy.Status == "Available")
     df <- subset(df, df$Protection.Status == "Public")
 
-    if(!is.null(center)) df <- df[grepl(center,df[,"Archive.Name"],
-                                        ignore.case = TRUE),]
-    if(!is.null(archive.name)) df <- df[grepl(archive.name,df[,"Archive.Name"],
-                                              ignore.case = TRUE),]
+    if (!is.null(center)) df <- df[grepl(center,df[,"Archive.Name"],
+                                         ignore.case = TRUE),]
+    if (!is.null(archive.name)) df <- df[grepl(archive.name,df[,"Archive.Name"],
+                                               ignore.case = TRUE),]
 
-    message("We found these maf  below")
+    message("We found these maf below:")
     print(df[,c(1,5,7)])
 
     if(nrow(df) > 1){
@@ -1017,6 +1018,10 @@ TCGAquery_maf <- function(tumor = NULL, center = NULL, archive.name = NULL){
             message("Sorry, we have more than 1 maf file, please filter by the name")
             return (NULL)
         }
+    }
+    if(nrow(df) == 0){
+        message("Sorry, no maf found")
+        return (NULL)
     }
 
 
@@ -1031,19 +1036,14 @@ TCGAquery_maf <- function(tumor = NULL, center = NULL, archive.name = NULL){
     #df -> df[order(nb,decreasing = F),]
 
     message("Downloading maf file")
-    if(!file.exists(basename(df[1,]$Deploy.Location)))
+    if (!file.exists(basename(df[1,]$Deploy.Location)))
         download(df[1,]$Deploy.Location,basename(df[1,]$Deploy.Location))
 
-    ret <- read.table(basename(df[1,]$Deploy.Location), fill = TRUE,
-                      comment.char = "#", header = TRUE, sep = "\t")
-
-    x <- readline("Do you want to integrate the clinical data? (y/n)")
-
-    if (tolower(x) == "y") {
-        ret$bcr_patient_barcode <- substr(ret$Tumor_Sample_Barcode,1,12)
-        clinical <- TCGAquery_clinic(tumor, "clinical_patient")
-        ret <- merge(ret,clinical, by="bcr_patient_barcode")
-    }
+    suppressWarnings({
+        ret <- read.table(basename(df[1,]$Deploy.Location), fill = TRUE,
+                          comment.char = "#", header = TRUE, sep = "\t", quote='')
+    })
+    ret$bcr_patient_barcode <- substr(ret$Tumor_Sample_Barcode,1,12)
 
     return(ret)
 }
