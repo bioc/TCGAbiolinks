@@ -106,15 +106,8 @@ diffmean <- function(data, groupCol = NULL, group1 = NULL, group2 = NULL) {
 #' @export
 #' @return Survival plot
 #' @examples
-#' days_to_death <- floor(runif(200, 1, 1000))
-#' vital_status <- c(rep("Dead",200))
-#' groups <- c(rep(c("G1","G2"),c(100,100)))
-#' df <- data.frame(days_to_death,vital_status,groups)
-#' TCGAanalyze_survival(df,clusterCol="groups")
-#' \dontrun{
-#' clinical <- TCGAquery_clinic("gbm","clinical_patient")
-#' TCGAanalyze_survival(clinical,"gender", filename = "surv.pdf", legend="Gender")
-#' }
+#' clin <- GDCquery_clinic("TCGA-LGG", type = "clinical", save.csv = FALSE)
+#' TCGAanalyze_survival(clin, clusterCol="gender")
 TCGAanalyze_survival <- function(data,
                                  clusterCol = NULL,
                                  legend = "Legend",
@@ -137,6 +130,9 @@ TCGAanalyze_survival <- function(data,
 ) {
     .e <- environment()
 
+    if(!all(c("vital_status", "days_to_death") %in% colnames(data)))
+        stop("Columns vital_status, days_to_death should be in data frame")
+
     if(is.null(color)){
         color <- rainbow(length(unique(data[,clusterCol])))
     }
@@ -146,15 +142,14 @@ TCGAanalyze_survival <- function(data,
         message("Please provide the clusterCol argument")
         return(NULL)
     }
-    notDead <- which(data$days_to_death == "[Not Applicable]")
+    notDead <- is.na(data$days_to_death)
 
     if (length(notDead) > 0) {
-        data[notDead,]$days_to_death <- data[notDead,]$days_to_last_followup
+        data[notDead,]$days_to_death <- data[notDead,]$days_to_last_follow_up
     }
-
     # create a column to be used with survival package, info need
     # to be TRUE(DEAD)/FALSE (ALIVE)
-    data$s <- (data$vital_status == "Dead")
+    data$s <- grepl("dead",data$vital_status,ignore.case = TRUE)
 
     # Column with groups
     data$type <- as.factor(data[,clusterCol])
@@ -1265,12 +1260,11 @@ TCGAvisualize_starburst <- function(met,
     }
 
     if (class(met) == class(as(SummarizedExperiment(),"RangedSummarizedExperiment"))){
-        met <- as.data.frame(rowRanges(met))
+        met <- values(met)
     }
 
     # Preparing methylation
     pcol <- paste("p.value.adj",group1,group2,sep = ".")
-
     if(!(pcol %in%  colnames(met))){
         pcol <- paste("p.value.adj",group2,group1,sep = ".")
     }
@@ -1278,11 +1272,12 @@ TCGAvisualize_starburst <- function(met,
         stop("Error! p-values adjusted not found. Please, run TCGAanalyze_DMR")
     }
 
+    # somehow the merge changes the names with - to .
+    pcol <- gsub("-",".",pcol)
 
     aux <- strsplit(row.names(exp),"\\|")
     exp$Gene_Symbol  <- unlist(lapply(aux,function(x) x[1]))
     volcano <- merge(met, exp, by = "Gene_Symbol")
-
     volcano$ID <- paste(volcano$Gene_Symbol,
                         volcano$probeID, sep = ".")
 
@@ -1293,7 +1288,7 @@ TCGAvisualize_starburst <- function(met,
         -1 * volcano[volcano$logFC > 0, "geFDR"]
 
 
-    diffcol <- paste("diffmean",group1,group2,sep = ".")
+    diffcol <- gsub("-",".",paste("diffmean",group1,group2,sep = "."))
     volcano$meFDR <- log10(volcano[,pcol])
     volcano$meFDR2 <- volcano$meFDR
     idx <- volcano[,diffcol] > 0

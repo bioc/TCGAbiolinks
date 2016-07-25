@@ -5,10 +5,8 @@
 \title{Read the data from level 3 the experiments and prepare it
  for downstream analysis into a SummarizedExperiment object.}
 \usage{
-TCGAprepare(query, dir = NULL, samples = NULL, type = NULL,
-  save = FALSE, filename = NULL, add.mutation.genes = FALSE,
-  add.clinical = TRUE, reannotate = FALSE, summarizedExperiment = TRUE,
-  add.subtype = FALSE)
+TCGAprepare(query = NULL, dir = NULL, samples = NULL, type = NULL,
+  save = FALSE, filename = NULL, summarizedExperiment = TRUE)
 }
 \arguments{
 \item{query}{TCGAquery output}
@@ -24,33 +22,15 @@ Default: \code{FALSE}}
 
 \item{filename}{Name of the saved file}
 
-\item{add.mutation.genes}{Integrate information about genes mutation? DEFAULT: FALSE}
-
-\item{add.clinical}{Add clinical information from TCGAquery_clinic?
-(The information file add will be: clinical_patient) Default: \code{FALSE}}
-
-\item{reannotate}{Reannotate genes?  Source http://grch37.ensembl.org/.
-DEFAULT: FALSE. (For the moment only working for methylation data)}
-
 \item{summarizedExperiment}{Output as SummarizedExperiment?
 Default: \code{FALSE}}
-
-\item{add.subtype}{Add subtype information from tcgaquery_subtype? Default: \code{FALSE}}
 }
 \value{
 A SummarizedExperiment object (If SummarizedExperiment = \code{FALSE},
 a data.frame)
 }
 \description{
-This function will read the data from level 3 the experiments and prepare it
- for downstream analysis into a SummarizedExperiment object.
-
- The samples are always refered by their barcode.
-
- If you want to save the data into an rda file, please use the \emph{save}
- parameter that will save an rda object with the  \emph{filename} parameter.
- If no filename was set, the filename will be the concatenation of platform and
- Sys.time.
+This function has been replaced by GDCPrepare
 
 List of accepted platforms:
 \itemize{
@@ -72,18 +52,11 @@ List of accepted platforms:
  \strong{Return}The default output is a SummarizedExperiment object.
 }
 \examples{
+\dontrun{
 sample <- "TCGA-06-0939-01A-01D-1228-05"
 query <- TCGAquery(tumor = "GBM",samples = sample, level = 3)
 TCGAdownload(query,path = "exampleData",samples = sample)
 data <- TCGAprepare(query, dir="exampleData")
 }
-\seealso{
-\code{\link{TCGAquery}} for searching the data to download
-
- \code{\link{TCGAdownload}} for downloading the data from the
-search
-
-Other data.functions: \code{\link{TCGAdownload}},
-  \code{\link{TCGAquery}}
 }
 

@@ -48,8 +48,6 @@ TCGAanalyze_Clustering <- function(tabDF, method,  methodHC = "ward.D2"){
 #' @importFrom grDevices dev.list
 #' @export
 #' @return Plot with array array intensity correlation and boxplot of correlation samples by samples
-#' @examples
-#' query <- TCGAquery(tumor = "lgg")
 TCGAanalyze_Preprocessing<- function(object,
                                      cor.cut = 0,
                                      filename = NULL,
@@ -93,7 +91,7 @@ TCGAanalyze_Preprocessing<- function(object,
     layout(matrix(c(1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 3, 3, 3, 4), 4, 4, byrow = TRUE))
 
     #c <- cor(exprs(object)[, order], method = "spearman")
-    c <- cor(assay(object,"raw_counts")[, order], method = "spearman")
+    c <- cor(assay(object,"raw_count")[, order], method = "spearman")
 
     image(c, xaxt = "n", yaxt = "n",
           xlab = "Array Samples",
@@ -127,8 +125,8 @@ TCGAanalyze_Preprocessing<- function(object,
             main ="Boxplot of correlation samples by samples after normalization")
 
     samplesCor <- rowMeans(c)
-    objectWO <-  assay(object,"raw_counts")[, samplesCor > cor.cut]
-    #colnames(objectWO) <- colData(object)$sample[,samplesCor > cor.cut]
+    objectWO <-  assay(object,"raw_count")[, samplesCor > cor.cut]
+    colnames(objectWO) <- colnames(object)[samplesCor > cor.cut]
 
     dev.off()
     return(objectWO)
@@ -152,7 +150,7 @@ TCGAanalyze_Preprocessing<- function(object,
 #' }
 #' @param clinical_patient is a data.frame using function 'clinic' with information
 #' related to barcode / samples such as bcr_patient_barcode, days_to_death ,
-#' days_to_last_followup , vital_status, etc
+#' days_to_last_follow_up , vital_status, etc
 #' @param dataGE is a matrix of Gene expression (genes in rows, samples in cols) from TCGAprepare
 #' @param Genelist is a list of gene symbols where perform survival KM.
 #' @param Survresult is a parameter (default = FALSE) if is TRUE will show KM plot and results.
@@ -163,14 +161,13 @@ TCGAanalyze_Preprocessing<- function(object,
 #' @export
 #' @return table with survival genes pvalues from KM.
 #' @examples
-#' query <- TCGAquery(tumor = "lgg")
 #' \dontrun{
-#' clinical_patient_Cancer <- TCGAquery_clinic("brca","clinical_patient")
-#' dataBRCAcomplete <- log2(BRCA_rnaseqv2)
-#' # Selecting only 10 genes for example
-#' dataBRCAcomplete <- dataBRCAcomplete[1:10,]
-#' tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
-#' Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
+#'  clinical_patient_Cancer <- TCGAquery_clinic("brca","clinical_patient")
+#'  dataBRCAcomplete <- log2(BRCA_rnaseqv2)
+#'  # Selecting only 10 genes for example
+#'  dataBRCAcomplete <- dataBRCAcomplete[1:10,]
+#'  tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
+#'  Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
 #' }
 TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
                                  ThreshTop=0.67, ThreshDown=0.33,p.cut=0.05){
@@ -183,11 +180,11 @@ TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
     dataNormal <- dataGE[Genelist,samplesNT]
     colnames(dataCancer)  <- substr(colnames(dataCancer),1,12)
     cfu<-clinical_patient[clinical_patient[,"bcr_patient_barcode"] %in% substr(colnames(dataCancer),1,12),]
-    cfu <- as.data.frame(subset(cfu, select=c("bcr_patient_barcode","days_to_death","days_to_last_followup","vital_status"))  )
+    cfu <- as.data.frame(subset(cfu, select=c("bcr_patient_barcode","days_to_death","days_to_last_follow_up","vital_status"))  )
     cfu[which(cfu$vital_status=="Alive"),"days_to_death"]<-"-Inf"
-    cfu[which(cfu$vital_status=="Dead"),"days_to_last_followup"]<-"-Inf"
+    cfu[which(cfu$vital_status=="Dead"),"days_to_last_follow_up"]<-"-Inf"
 
-    cfu <- cfu[ !(is.na(cfu[,"days_to_last_followup"])),]
+    cfu <- cfu[ !(is.na(cfu[,"days_to_last_follow_up"])),]
     cfu <- cfu[ !(is.na(cfu[,"days_to_death"])),]
 
     followUpLevel<-FALSE
@@ -200,10 +197,10 @@ TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
     tabSurv_Matrix<-as.data.frame(tabSurv_Matrix)
 
     cfu$days_to_death<-as.numeric(as.character(cfu$days_to_death))
-    cfu$days_to_last_followup<-as.numeric(as.character(cfu$days_to_last_followup))
+    cfu$days_to_last_follow_up<-as.numeric(as.character(cfu$days_to_last_follow_up))
     rownames(cfu) <- cfu[, "bcr_patient_barcode" ] #mod1
 
-    cfu <- cfu[ !(is.na(cfu[,"days_to_last_followup"])),]
+    cfu <- cfu[ !(is.na(cfu[,"days_to_last_follow_up"])),]
     cfu <- cfu[ !(is.na(cfu[,"days_to_death"])),]
 
     cfu_complete<-cfu
@@ -303,7 +300,7 @@ TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
             tabSurv_Matrix[i,"Mean Tumor Top"]<- mean(dataCancer_onlyTop_sample_mRNASelected)
             tabSurv_Matrix[i,"Mean Tumor Down"]<- mean(dataCancer_onlyDown_sample_mRNASelected)
 
-            ttime[!status] <- as.numeric(cfu[!status, "days_to_last_followup"])
+            ttime[!status] <- as.numeric(cfu[!status, "days_to_last_follow_up"])
             #ttime[!status] <- cfu[!status, "days_to_last_followup"]
 
             ttime[which(ttime== -Inf)]<-0

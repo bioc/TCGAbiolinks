@@ -1,3 +1,77 @@
+#' @title Download GDC data
+#' @description
+#'   Uses GDC transfer tool to download gdc data
+#'   The user can use query or manifest.file argument (not both at the same time)
+#'   The data from query will be save in a folder: project/data.category
+#'   The data from manifest.file  will be save in a folder: manifest.file.without.extension/
+#' @param query A query for GDCquery function
+#' @param token.file Token file to download controleed data
+#' @export
+#' @return Shows the output from the GDC transfer tools
+GDCDownload <- function(query, token.file) {
+
+    # There exists two options to download the data, using the query or using a manifest file
+    # The second option was created to let users use legacy data or the API to search
+    if(missing(query)) stop("Please set queryargument")
+
+    # This will find gdc clinet, if not installed it will install it
+    gdc.client.bin <- GDCclientInstall()
+
+    # Using the query argument we will organize the files to the user
+
+    # Creates a file with the gdc manifest format
+    manifest <- query$results[[1]][,c("file_id","file_name","md5sum","file_size","state")]
+    colnames(manifest) <- c("id","filename","md5","size","state")
+    path <- unique(file.path(query$project,
+                             gsub(" ","_", query$results[[1]]$data_category),
+                             gsub(" ","_",query$results[[1]]$data_type)))
+
+    # Check if the files were already downloaded by this package
+    files2Download <- sapply(manifest$id, function(x) !file.exists(file.path(path,x)))
+    manifest <- manifest[files2Download,]
+    write_delim(manifest,"gdc_manifest.txt",delim = "\t")
+
+    cmd <- paste0(gdc.client.bin, " download -m gdc_manifest.txt")
+
+    if(!missing(token.file)) cmd <- paste0(cmd," -t ", token.file)
+
+    # Download all the files in the manifest using gdc client
+    message(paste0("Executing GDC client with the following command:\n",cmd))
+    system(cmd)
+
+    # moving the file to make it more organized
+    for(i in manifest$id) move(i,file.path(path,i))
+}
+
+
+GDCclientPath <- function(){
+    global <- Sys.which("gdc-client")
+    if(global != "") return(global)
+    local <- dir(pattern = "gdc-client*[^zip]$")
+    if(local == "gdc-client") return(dir(pattern = "gdc-client*[^zip]$",full.names = TRUE))
+    return("")
+}
+
+GDCclientExists <- function(){
+    return(Sys.which("gdc-client") != "" | dir(pattern = "gdc-client*[^zip]$") == "gdc-client")
+}
+#' @importFrom xml2 read_html
+#' @importFrom downloader download
+#' @importFrom rvest html_nodes html_attr
+GDCclientInstall <- function(){
+    if(length(GDCclientExists())) return(GDCclientPath())
+
+    links <- read_html("https://gdc.nci.nih.gov/access-data/gdc-data-transfer-tool")  %>% html_nodes("a") %>% html_attr("href")
+    bin <- links[grep("zip",links)]
+    if(is.windows()) bin <- bin[grep("windows", bin)]
+    if(is.mac()) bin <- bin[grep("OSX", bin)]
+    if(is.linux()) bin <- bin[grep("Ubuntu", bin)]
+
+    download(paste0("https://gdc.nci.nih.gov/",bin), basename(bin))
+    unzip(basename(bin))
+    Sys.chmod("gdc-client")
+    return(dir(pattern = "gdc-client*[^zip]$",full.names = TRUE))
+}
 #' @title Download the data from TCGA using as reference the output from TCGAquery
 #' @description
 #'      The TCGAdownload function will download the data using as reference
@@ -20,11 +94,8 @@
 #' @param samples List of samples to download data
 #' @param force Download files even if it was already downladed?
 #' Default: \code{FALSE}
-#' @seealso \code{\link{TCGAquery}} for searching the data to download
-#'
-#' \code{\link{TCGAprepare}} for preparing the data for the user into
-#' a Summarized experiment object, or a matrix.
 #' @examples
+#' \dontrun{
 #' samples <- c("TCGA-26-1442-01A-01R-1850-01")
 #' query <- TCGAquery(tumor = "gbm",
 #'                    platform = "IlluminaHiSeq_RNASeqV2",
@@ -33,207 +104,11 @@
 #' TCGAdownload(query,path = "RNA",
 #'              samples = samples,
 #'              type ="rsem.genes.results")
+#' }
 #' @export
-#' @importFrom downloader download
-#' @importFrom stringr str_extract
-#' @importFrom rvest %>%
 #' @return Download TCGA data into the given path
 #' @family data functions
-TCGAdownload <- function(data = NULL, path = ".", type = NULL, samples = NULL,
-                         force = FALSE) {
-
-
-    if(is.windows()) mode <- "wb" else  mode <- "w"
-
-    dir.create(path, showWarnings = FALSE, recursive = TRUE)
-    root <- "https://tcga-data.nci.nih.gov"
-
-    # Downloading the folder
-    if (is.null(type) && is.null(samples) ) {
-        message(rep("-=",(nchar(file.path(path))/2) + 4))
-        message(paste0("| Downloading:", nrow(data), " folders"))
-        message(paste0("| Path:", file.path(path)))
-        message(rep("-=",(nchar(file.path(path))/2) + 4))
-        pb <- txtProgressBar(min = 0, max = nrow(data), style = 3)
-        for (i in 1:nrow(data)) {
-
-            file <- paste0(path, "/", basename(data[i, "deployLocation"]))
-            cat(paste0("\nDownloading:",
-                       basename(data[i, "deployLocation"]),"\n"))
-
-            md5 <- fread(paste0(root, data[i, "deployLocation"],".md5"),header = F,data.table = F)[1]
-
-            if (force || !file.exists(file) ||  tools::md5sum(file) != md5) {
-                repeat{
-                    download(paste0(root, data[i, "deployLocation"]),
-                             file, quiet = TRUE,mode = mode)
-
-                    if(tools::md5sum(file) == md5) break
-                    message("The data downloaded might be corrupted. We will download it again")
-                }
-                untar(file, exdir = path)
-            }
-            setTxtProgressBar(pb, i)
-        }
-        close(pb)
-    } else {
-        # Downloading files
-
-        for (i in 1:nrow(data)) {
-
-            folder <- gsub(".tar.gz","",basename(data[i,]$deployLocation))
-
-            url <- gsub(".tar.gz","",data[i,]$deployLocation)
-            files <- getFileNames(paste0(root,url))
-            manifest <- fread(paste0(root,url,"/",files[grep("MANIFEST",files)]), data.table = FALSE,header = FALSE,showProgress=FALSE)
-            idx <- grep("MANIFEST|README|CHANGES|DESCRIPTION|DATA_USE|Name|Size|Parent|Last",files)
-            files <- files[-idx]
-
-            if(!is.null(type)){
-                if(type == "nocnv_hg18" | type == "nocnv_hg18.seg") type <- "nocnv_hg18"
-                if(type == "cnv_hg18" | type == "hg18.seg") type <- "[^nocnv_]hg18.seg"
-                if(type == "nocnv_hg19" | type == "nocnv_hg19.seg") type <- "nocnv_hg19"
-                if(type == "cnv_hg19" | type == "hg19.seg") type <- "[^nocnv_]hg19.seg"
-                # mirna types
-                if(type == "hg19.mirbase20.mirna.quantification") type <- "hg19.mirbase20.mirna.quantification"
-                if(type == "hg19.mirbase20.isoform.quantification") type <- "hg19.mirbase20.isoform.quantification"
-                if(type == "isoform.quantification" ) type <- "[^(hg19.mirbase20)].isoform.quantification"
-                if(type == "mirna.quantification" ) type <- "[^(hg19.mirbase20)].mirna.quantification"
-
-                files <- files[grepl(type,files)]
-
-                if (length(files) == 0) {
-                    next
-                }
-            }
-            if(!is.null(samples)){
-                files <- filterFiles(data[i,],samples,files)
-            }
-
-            if(length(files) > 0){
-                dir.create(file.path(path,folder), showWarnings = FALSE)
-
-                message(rep("-=",(nchar(file.path(path,folder))/2)+4))
-                message(paste0("| Downloading:", length(files), " files"))
-                message(paste0("| Path:", file.path(path,folder)))
-                message(rep("-=",(nchar(file.path(path,folder))/2)+4))
-                pb <- txtProgressBar(min = 0, max = length(files), style = 3)
-            }
-
-            for (i in seq_along(files)) {
-                if (force || !file.exists(file.path(path,folder,files[i])) ||
-                    tools::md5sum(file.path(path,folder,files[i])) != manifest[which(manifest[,2] == files[i]),1]) {
-
-                    # repeat until not corrupted
-                    repeat{
-                        message(paste0("[",i,"] ", files[i],"\n"))
-                        download(paste0(root,url,"/",files[i]),
-                                 file.path(path,folder,files[i]),
-                                 quiet = TRUE,mode = mode)
-
-                        md5 <- tools::md5sum(file.path(path,folder,files[i]))
-                        corrupted <- md5 != manifest[which(manifest[,2] == files[i]),1]
-
-                        # if corrupted try to download again!
-                        if(!corrupted){
-                            break
-                        }
-                        message("This downloaded file might be corrupted, we are downloading it again.")
-
-                    }
-                }
-                setTxtProgressBar(pb, i)
-            }
-            if(length(files) > 0){
-                close(pb)
-            }
-        }
-    }
-
+TCGAdownload <- function(data = NULL, path = ".", type = NULL, samples = NULL, force = FALSE) {
+    stop("TCGA data has moved from DCC server to GDC server. Please use GDCdownload function")
 }
 
-# Filter files by barcode
-#' @importFrom stringr str_extract
-filterFiles <- function(data,samples,files){
-
-    # If it if maf it is better to let download all files
-    #maf <- paste("SOLiD_DNASeq_curated",
-    #             "SOLiD_DNASeq", # partial barcode 2
-    #             "illuminaga_dnaseq",
-    #             sep = "|"
-    #)
-
-    barcodeName <- paste("IlluminaHiSeq_RNASeq",
-                         #"humanmethylation",
-                         "H-miRNA_8x15K",
-                         "images",
-                         "SOLiD_DNASeq",
-                         "pathology_reports",
-                         "IlluminaDNAMethylation",
-                         #"HG-CGH-244A", # exception depends on the center (harvard - barcode name)
-                         # mskcc.org in the mage
-                         "HG-CGH-415K_G4124A",
-                         "HG-U133_Plus_2",
-                         "IlluminaGA_DNASeq_automated",
-                         "IlluminaGA_miRNASeq",
-                         "IlluminaGA_mRNA_DGE",
-                         "IlluminaGA_RNASeq",
-                         "IlluminaHiSeq_DNASeqC",
-                         "IlluminaHiSeq_miRNASeq",
-                         "IlluminaHiSeq_RNASeq", sep = "|")
-
-    uuidName <- paste("RNASeqV2",
-                      "MDA_RPPA_Core",
-                      sep = "|")
-
-    mageName <-  paste("AgilentG4502A",
-                       "CGH-1x1M_G4447A",
-                       "Genome_Wide_SNP_6",
-                       "HT_HG-U133A",
-                       "IlluminaHiSeq_WGBS",
-                       sep = "|")
-
-
-    level <- as.numeric(unique(substr(str_extract(data$name,"Level_[1-3]"),7,7)))
-
-    if (grepl(uuidName,data$Platform, ignore.case = TRUE)) {
-        # case uuid in name file
-        regex <- paste0("[[:alnum:]]{8}-[[:alnum:]]{4}",
-                        "-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}")
-        uuid <- str_match(files,regex)[,1]
-        map <- mapuuidbarcode(unique(na.omit(uuid)))
-        idx <- unique(unlist(lapply(samples, function(x) grep(x,map$barcode))))
-        idx <- which(tolower(uuid) %in% map[idx,]$uuid)
-        files <- files[idx]
-    } else if (grepl("IlluminaGA_DNASeq_curated|illuminaga_dnaseq_automated",data$Platform) & data$Center == "broad.mit.edu") {
-        # Exception - two uuids in the name
-        # case uuid in name file
-        regex <- paste0("[[:alnum:]]{8}-[[:alnum:]]{4}",
-                        "-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}")
-        files <- files[grep(regex,files)]
-        uuid <- unlist(str_match_all(files,regex))
-        map <- mapuuidbarcode(unique(na.omit(uuid)))
-        idx <- unique(unlist(lapply(samples, function(x) grep(x,map$barcode))))
-        idx <- which(uuid %in% map[idx,]$uuid)
-        files <- files[ceiling(idx / 2)]
-    } else if(grepl(barcodeName, data$Platform, ignore.case = TRUE)
-              | (grepl("humanmethylation", data$Platform, ignore.case = TRUE) & level != 1 )
-              | (grepl("HG-CGH-244A", data$Platform, ignore.case = TRUE) & data$Center == "hms.harvard.edu" )) {
-        idx <- unique(unlist(lapply(samples, function(x) grep(x,files))))
-        files <- files[idx]
-    } else if(grepl(mageName, data$Platform, ignore.case = TRUE)
-              | (grepl("humanmethylation", data$Platform, ignore.case = TRUE) & level == 1 )
-              | (grepl("HG-CGH-244A", data$Platform, ignore.case = TRUE) & data$Center == "mskcc.org" )) {
-        mage <- getMage(data)
-        idx <- unlist(lapply(samples,
-                             function(x) grep(x,mage$Comment..TCGA.Barcode.)))
-        idx <- unique(idx)
-        mage <- mage[idx,]
-        idx <- grep("Derived.Array.Data.Matrix.File|Array.Data.File|Derived.Data.File",
-                    colnames(mage))
-        names <- unique(unlist(mage[,idx]))
-        idx <- unique(unlist(lapply(names, function(x) grep(x,files))))
-        files <- files[idx]
-    }
-    return(files)
-}

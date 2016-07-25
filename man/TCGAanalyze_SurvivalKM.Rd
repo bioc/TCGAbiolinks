@@ -10,7 +10,7 @@ TCGAanalyze_SurvivalKM(clinical_patient, dataGE, Genelist, Survresult,
 \arguments{
 \item{clinical_patient}{is a data.frame using function 'clinic' with information
 related to barcode / samples such as bcr_patient_barcode, days_to_death ,
-days_to_last_followup , vital_status, etc}
+days_to_last_follow_up , vital_status, etc}
 
 \item{dataGE}{is a matrix of Gene expression (genes in rows, samples in cols) from TCGAprepare}
 
@@ -45,14 +45,13 @@ from survival package
 }
 }
 \examples{
-query <- TCGAquery(tumor = "lgg")
 \dontrun{
-clinical_patient_Cancer <- TCGAquery_clinic("brca","clinical_patient")
-dataBRCAcomplete <- log2(BRCA_rnaseqv2)
-# Selecting only 10 genes for example
-dataBRCAcomplete <- dataBRCAcomplete[1:10,]
-tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
-Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
+ clinical_patient_Cancer <- TCGAquery_clinic("brca","clinical_patient")
+ dataBRCAcomplete <- log2(BRCA_rnaseqv2)
+ # Selecting only 10 genes for example
+ dataBRCAcomplete <- dataBRCAcomplete[1:10,]
+ tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
+ Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
 }
 }
 
