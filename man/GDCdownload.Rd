@@ -9,7 +9,7 @@ GDCdownload(query, token.file, method = "api")
 \arguments{
 \item{query}{A query for GDCquery function}
 
-\item{token.file}{Token file to download controleed data}
+\item{token.file}{Token file to download controled data (only for method = "client)}
 
 \item{method}{Use api method or gdc client tool (API is faster)}
 }
@@ -17,9 +17,8 @@ GDCdownload(query, token.file, method = "api")
 Shows the output from the GDC transfer tools
 }
 \description{
-Uses GDC transfer tool to download gdc data
-  The user can use query or manifest.file argument (not both at the same time)
+Uses GDC API or GDC transfer tool to download gdc data
+  The user can use query argument
   The data from query will be save in a folder: project/data.category
-  The data from manifest.file  will be save in a folder: manifest.file.without.extension/
 }
 
