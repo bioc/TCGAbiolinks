@@ -30,7 +30,7 @@
 #' # data will be saved in  example_data_dir/TARGET-AML/harmonized/Transcriptome_Profiling/miRNA_Expression_Quantification
 #' GDCdownload(query, method = "client", directory = "example_data_dir")
 #' query <- GDCquery(project = "TCGA-COAD", data.category = "Clinical")
-#' GDCdownload(query, chunks.per.download = 20)
+#' GDCdownload(query, chunks.per.download = 200)
 #' @return Shows the output from the GDC transfer tools
 GDCdownload <- function(query,
                         token.file,
@@ -54,8 +54,11 @@ GDCdownload <- function(query,
     # Check if the files were already downloaded by this package
 
     files2Download <- !file.exists(file.path(path,manifest$id,manifest$filename))
-    if(any(files2Download == FALSE)) message("Of the ", nrow(manifest), " files for download ",
-                                            table(files2Download)["FALSE"] , " already exist. We will download only those that are missing ones.")
+    if(any(files2Download == FALSE)) {
+        message("Of the ", nrow(manifest), " files for download ",
+                                            table(files2Download)["FALSE"] , " already exist.")
+        if(any(files2Download == TRUE)) message("We will download only those that are missing ones.")
+    }
     manifest <- manifest[files2Download,]
     # There is a bug in the API, if the files has the same name it will not download correctly
     # so method should be set to client if there are files with duplicated names
@@ -98,7 +101,7 @@ GDCdownload <- function(query,
                            humanReadableByteCount(sum(as.numeric(manifest$size)))))
         } else {
             # case with one file only. This is not at tar.gz
-            name <- query$results[[1]]$file_name
+            name <- manifest$filename
             message(paste0("GDCdownload will download: ",
                            humanReadableByteCount(sum(as.numeric(manifest$size)))))
         }
@@ -110,19 +113,19 @@ GDCdownload <- function(query,
             GDCdownload.aux(server, manifest, name, path)
         } else {
             step <- chunks.per.download
-            for(idx in 0:floor(nrow(manifest)/step)){
+            for(idx in 0:ceiling(nrow(manifest)/step - 1)){
                 end <- ifelse(((idx + 1) * step) > nrow(manifest), nrow(manifest),((idx + 1) * step))
                 manifest.aux <- manifest[((idx * step) + 1):end,]
                 size <- humanReadableByteCount(sum(as.numeric(manifest.aux$size)))
-                name <- gsub(".tar",paste0(idx,"_.tar"),name)
-                message(paste0("Downloading chunk ", idx, " of ", floor(nrow(manifest)/step) ,
+                name.aux <- gsub(".tar",paste0("_",idx,".tar"),name)
+                message(paste0("Downloading chunk ", idx, " of ", ceiling(nrow(manifest)/step - 1) ,
                                " (", nrow(manifest.aux)," files, size = ", size,") ",
-                               " as ", name))
-                GDCdownload.aux(server, manifest.aux, name, path)
+                               "as ", name.aux))
+                GDCdownload.aux(server, manifest.aux, name.aux, path)
             }
         }
     } else {
-        message("All samples have been already downloded")
+        message("All samples have been already downloaded")
     }
 }
 
