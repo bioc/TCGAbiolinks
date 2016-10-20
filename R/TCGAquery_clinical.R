@@ -347,7 +347,8 @@ GDCquery_clinic <- function(project, type = "clinical", save.csv = FALSE){
 #' based on the desired information
 #' @param query Result from GDCquery, with data.category set to Clinical
 #' @param clinical.info Which information should be retrieved.
-#' Options: drug, admin, follow_up,radiation, patient, stage_event or new_tumor_event
+#' Options Clinical: drug, admin, follow_up,radiation, patient, stage_event or new_tumor_event
+#' Options Biospecimen: protocol, admin, aliquot, analyte, bio_patient, sample, portion, slide
 #' @param directory Directory/Folder where the data was downloaded. Default: GDCdata
 #' @importFrom xml2 read_xml xml_ns
 #' @importFrom XML xmlParse getNodeSet xmlToDataFrame
@@ -362,8 +363,20 @@ GDCquery_clinic <- function(project, type = "clinical", save.csv = FALSE){
 #' clinical.drug <- GDCprepare_clinic(query,"drug")
 #' clinical.radiation <- GDCprepare_clinic(query,"radiation")
 #' clinical.admin <- GDCprepare_clinic(query,"admin")
+#' query <- GDCquery(project = "TCGA-COAD",
+#'                   data.category = "Biospecimen",
+#'                   barcode = c("TCGA-RU-A8FL","TCGA-AA-3972"))
+#' GDCdownload(query)
+#' clinical <- GDCprepare_clinic(query,"admin")
+#' clinical.drug <- GDCprepare_clinic(query,"sample")
+#' clinical.radiation <- GDCprepare_clinic(query,"portion")
+#' clinical.admin <- GDCprepare_clinic(query,"slide")
 GDCprepare_clinic <- function(query, clinical.info, directory = "GDCdata"){
-    valid.clinical.info <- c("drug","admin","follow_up","radiation","patient","stage_event","new_tumor_event")
+    if(unique(query$results[[1]]$data_category) != "Biospecimen") {
+        valid.clinical.info <- c("drug","admin","follow_up","radiation","patient","stage_event","new_tumor_event")
+    } else {
+        valid.clinical.info <- c("protocol","admin","aliquot","analyte","bio_patient","sample", "portion", "slide")
+    }
     if(missing(clinical.info)) stop(paste0("Please set clinical.info argument:\n=> ",paste(valid.clinical.info,collapse = "\n=> ")))
     if(!(clinical.info %in% valid.clinical.info)) stop(paste0("Please set a valid clinical.info argument:\n=> ",paste(valid.clinical.info,collapse = "\n=> ")))
 
@@ -377,26 +390,23 @@ GDCprepare_clinic <- function(query, clinical.info, directory = "GDCdata"){
     files <- file.path(directory, files)
     if(!all(file.exists(files))) stop(paste0("I couldn't find all the files from the query.",
                                              "Please check directory parameter right"))
-
+    xpath <- NULL
 
     disease <- tolower(gsub("TCGA-","",query$project))
     if(tolower(clinical.info) == "drug")      xpath <- "//rx:drug"
-    if(tolower(clinical.info) == "admin")     xpath <- "//admin:admin"
-    if(tolower(clinical.info) == "follow_up"){
-        xmlfile <- files[1]
-        xml <- read_xml(xmlfile)
-        follow_up_version <-  names(xml_ns(xml))[grepl("follow_up",names(xml_ns(xml)))]
-        if(length(follow_up_version) > 1) {
-            n <- readline(prompt=paste0("There is more than one follow up version, please select one",
-                                        paste0(seq(1:length(follow_up_version)), follow_up_version)))
-            follow_up_version <- follow_up_version[n]
-        }
-        xpath <- paste0("//", follow_up_version, ":follow_up")
-    }
-    if(tolower(clinical.info) == "radiation") xpath <- "//rad:radiation"
-    if(tolower(clinical.info) == "patient")   xpath <- paste0("//",disease,":patient")
-    if(tolower(clinical.info) == "stage_event")     xpath <- "//shared_stage:stage_event"
-    if(tolower(clinical.info) == "new_tumor_event") xpath <- paste0("//",disease,"_nte:new_tumor_event")
+    else if(tolower(clinical.info) == "admin")     xpath <- "//admin:admin"
+    else if(tolower(clinical.info) == "radiation") xpath <- "//rad:radiation"
+    else if(tolower(clinical.info) == "patient")   xpath <- paste0("//",disease,":patient")
+    else if(tolower(clinical.info) == "stage_event")     xpath <- "//shared_stage:stage_event"
+    else if(tolower(clinical.info) == "new_tumor_event") xpath <- paste0("//",disease,"_nte:new_tumor_event")
+    # biospecimen xpaths
+    else if(tolower(clinical.info) == "sample")      xpath <- "//bio:sample"
+    else if(tolower(clinical.info) == "bio_patient")      xpath <- "//bio:patient"
+    else if(tolower(clinical.info) == "analyte")      xpath <- "//bio:analyte"
+    else if(tolower(clinical.info) == "aliquot")      xpath <- "//bio:aliquot"
+    else if(tolower(clinical.info) == "protocol")      xpath <- "//bio:protocol"
+    else if(tolower(clinical.info) == "portion")      xpath <- "//bio:portion"
+    else if(tolower(clinical.info) == "slide")  xpath <- "//bio:slide"
 
     clin <- NULL
     pb <- txtProgressBar(min = 0, max = length(files), style = 3)
@@ -404,6 +414,15 @@ GDCprepare_clinic <- function(query, clinical.info, directory = "GDCdata"){
         xmlfile <- files[i]
         xml <- read_xml(xmlfile)
         doc = xmlParse(xmlfile)
+
+        if(tolower(clinical.info) == "follow_up" & is.null(xpath)){
+            follow_up_version <-  names(xml_ns(xml))[grepl("follow_up",names(xml_ns(xml)))]
+            if(length(follow_up_version) > 1) {
+                follow_up_version <- follow_up_version[length(follow_up_version)]
+            }
+            if(length(follow_up_version) == 1)  xpath <- paste0("//", follow_up_version, ":follow_up")
+            else next
+        }
 
         patient <- str_extract(xmlfile,"[:alnum:]{4}-[:alnum:]{2}-[:alnum:]{4}")
         # Test if this xpath exists before parsing it
@@ -441,6 +460,15 @@ GDCprepare_clinic <- function(query, clinical.info, directory = "GDCdata"){
                 clin[which(clin[,i] != ""),i] <- "YES"
                 clin[which(clin[,i] == ""),i] <- "NO"
                 colnames(clin)[which(colnames(clin) == i)] <- paste0("has_",i,"_information")
+        }
+    }
+    if(tolower(clinical.info) == "samples") clin$samples <- NULL
+    if(tolower(clinical.info) == "portion") {
+        for(i in c("slides","analytes")){
+            clin[,i] <- as.character(clin[,i])
+            clin[which(clin[,i] != ""),i] <- "YES"
+            clin[which(clin[,i] == ""),i] <- "NO"
+            colnames(clin)[which(colnames(clin) == i)] <- paste0("has_",i,"_information")
         }
     }
     close(pb)
