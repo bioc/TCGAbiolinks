@@ -905,6 +905,9 @@ TCGAVisualize_volcano <- function(x,y,
 #' the name of the group
 #' @param group2 In case our object has more than 2 groups, you should set
 #' the name of the group
+#' @param calculate.pvalues.probes In order to get the probes faster the user can select to calculate the pvalues
+#' only for the probes with a difference in DNA methylation. The default is to calculate to all probes.
+#' Possible values: "all", "differential". Default "all"
 #' @param plot.filename Filename. Default: volcano.pdf, volcano.svg, volcano.png. If set to FALSE, there will be no plot.
 #' @param legend Legend title
 #' @param color vector of colors to be used in graph
@@ -933,6 +936,7 @@ TCGAVisualize_volcano <- function(x,y,
 #' @importFrom SummarizedExperiment colData rowRanges assay rowRanges<- values<-
 #' @importFrom S4Vectors metadata
 #' @importFrom dplyr data_frame
+#' @import readr
 #' @import utils
 #' @export
 #' @return Volcano plot saved and the given data with the results
@@ -963,6 +967,7 @@ TCGAanalyze_DMR <- function(data,
                             groupCol=NULL,
                             group1=NULL,
                             group2=NULL,
+                            calculate.pvalues.probes = "all",
                             plot.filename = "methylation_volcano.pdf",
                             ylab =  expression(paste(-Log[10],
                                                      " (FDR corrected -P values)")),
@@ -1053,11 +1058,29 @@ TCGAanalyze_DMR <- function(data,
         pcol <- paste("p.value.adj", group1.col, group2.col, sep = ".")
     }
     if (!(pcol %in% colnames(values(data))) | overwrite) {
-        data <- calculate.pvalues(data, groupCol, group1, group2,
-                                  paired = paired,
-                                  method = adj.method,
-                                  cores = cores,
-                                  save = save)
+        if(calculate.pvalues.probes == "all"){
+            data <- calculate.pvalues(data, groupCol, group1, group2,
+                                      paired = paired,
+                                      method = adj.method,
+                                      cores = cores,
+                                      save = save)
+        } else  if(calculate.pvalues.probes == "differential"){
+            message(paste0("Caculating p-values only for probes with a difference of mean methylation equal or higher than ", diffmean.cut))
+            print(diffcol)
+            print(colnames(values(data)))
+            diff.probes <- abs(values(data)[,diffcol]) > diffmean.cut
+            nb <- length(which(diff.probes == TRUE))
+            if(nb == 0) {
+                warning("No probes differenly methylated")
+                return(NULL)
+            }
+            print(paste0("Number of probes differenly methylated: ",nb))
+            data <- calculate.pvalues(data[diff.probes,], groupCol, group1, group2,
+                                      paired = paired,
+                                      method = adj.method,
+                                      cores = cores,
+                                      save = save)
+        }
 
         # An error should not happen, if it happens (probably due to an incorret
         # user input) we will stop
@@ -1132,7 +1155,7 @@ TCGAanalyze_DMR <- function(data,
         # get metadata not created by this function
         idx <- grep("mean|status|value",colnames(df),invert = TRUE)
 
-        write.csv2(df[,
+        write_csv(as.data.frame(df[,
                       c(colnames(df)[idx],
                         paste("mean", group1.col,sep = "."),
                         paste("mean", group2.col,sep = "."),
@@ -1144,7 +1167,7 @@ TCGAanalyze_DMR <- function(data,
                         paste("p.value",group2.col,group1.col,sep = "."),
                         paste("p.value.adj",group2.col,group1.col,sep = "."),
                         statuscol2)
-                      ],file =  csv)
+                      ]),path =  csv)
         if (is.null(filename)) {
             filename <- paste0(paste(
                 gsub("_",".",groupCol),
