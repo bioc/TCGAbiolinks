@@ -24,7 +24,8 @@ test_that("TCGAvisualize_meanMethylation works", {
                                   "TCGA-12-0829-01A-01D-0392-05", "TCGA-06-0155-01B-01D-0521-05",
                                   "TCGA-02-0099-01A-01D-0199-05", "TCGA-19-4068-01A-01D-1228-05",
                                   "TCGA-19-1788-01A-01D-0595-05", "TCGA-16-0848-01A-01D-0392-05"))
-    GDCdownload(query, method = "api")
+    tryCatch(GDCdownload(query, method = "api",chunks.per.download = 20),
+             error = function(e) GDCdownload(query, method = "api"))
     data <- GDCprepare(query)
 
     # setting y limits: lower 0, upper 1
@@ -58,5 +59,20 @@ test_that("TCGAvisualize_meanMethylation works", {
     unlink("tcga-gbm-*")
 })
 
+test_that("TCGAvisualize_oncoprint works", {
+    mut <- GDCquery_Maf(tumor = "ACC",pipelines = "muse")
+    clin <- GDCquery_clinic("TCGA-ACC","clinical")
+    clin <- clin[,c("bcr_patient_barcode","disease","gender","tumor_stage","race","vital_status")]
+    TCGAvisualize_oncoprint(mut = mut, genes = mut$Hugo_Symbol[1:20],
+                            filename = "oncoprint.pdf",
+                            annotation = clin,
+                            color=c("background"="#CCCCCC","DEL"="purple","INS"="yellow","SNP"="brown"),
+                            rows.font.size=10,
+                            heatmap.legend.side = "right",
+                            dist.col = 0,
+                            label.font.size = 10)
+    unlink("oncoprint.pdf")
+
+})
 
 
