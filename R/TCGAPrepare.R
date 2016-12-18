@@ -94,7 +94,8 @@ GDCprepare <- function(query,
     }  else if(grepl("Protein expression",query$data.category,ignore.case = TRUE)) {
         data <- readProteinExpression(files, query$results[[1]]$cases)
     }  else if(grepl("Simple Nucleotide Variation",query$data.category,ignore.case = TRUE)) {
-        if(query$data.type == "Masked Somatic Mutation") data <- readSimpleNucleotideVariationMaf(files)
+        if(grepl("Masked Somatic Mutation",query$data.type,ignore.case = TRUE) | source == "legacy")
+            suppressWarnings(data <- readSimpleNucleotideVariationMaf(files))
     }  else if(grepl("Clinical|Biospecimen", query$data.category, ignore.case = TRUE)){
         message("Mot working yet")
         # data <- readClinical(files, query$results[[1]]$cases)
@@ -272,14 +273,12 @@ makeSEfromGeneExpressionQuantification <- function(df, assay.list, genome="hg19"
     if(all(grepl("\\|",df[,1]))){
         aux <- strsplit(df$gene_id,"\\|")
         GeneID <- unlist(lapply(aux,function(x) x[2]))
-        df$entrezid <- as.numeric(GeneID)
-        GeneSymbol <- unlist(lapply(aux,function(x) x[1]))
-        df$external_gene_id <- as.character(GeneSymbol)
+        df$entrezgene <- as.numeric(GeneID)
     } else {
         df$external_gene_id <- as.character(df[,1])
     }
 
-    df <- merge(df, gene.location, by="external_gene_id")
+    df <- merge(df, gene.location, by="entrezgene")
 
     if("transcript_id" %in% assay.list){
         rowRanges <- GRanges(seqnames = paste0("chr", df$chromosome_name),
@@ -639,12 +638,20 @@ get.GRCh.bioMart <- function(genome="hg19") {
                         "ensembl_gene_id",
                         "external_gene_name")
     }
-    message(paste0("Downloading genome information. Using: ",
-                   listDatasets(ensembl)[listDatasets(ensembl)$dataset=="hsapiens_gene_ensembl",]$description))
-    chrom <- c(1:22, "X", "Y")
-    gene.location <- getBM(attributes = attributes,
-                           filters = c("chromosome_name"),
-                           values = list(chrom), mart = ensembl)
+    description <- listDatasets(ensembl)[listDatasets(ensembl)$dataset=="hsapiens_gene_ensembl",]$description
+    message(paste0("Downloading genome information. Using: ", description))
+
+    filename <-  paste0(gsub("[[:punct:]]| ", "_",description),".rda")
+    if(!file.exists(filename)) {
+        chrom <- c(1:22, "X", "Y")
+        gene.location <- getBM(attributes = attributes,
+                               filters = c("chromosome_name"),
+                               values = list(chrom), mart = ensembl)
+        save(gene.location, file = filename)
+    } else {
+        message("Loading")
+        gene.location <- get(load(filename))
+    }
 
     return(gene.location)
 }
