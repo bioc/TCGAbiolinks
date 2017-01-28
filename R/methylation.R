@@ -90,39 +90,49 @@ diffmean <- function(data, groupCol = NULL, group1 = NULL, group2 = NULL, save =
 #' @param clusterCol Column with groups to plot. This is a mandatory field, the
 #' caption will be based in this column
 #' @param legend Legend title of the figure
-#' @param cutoff xlim This parameter will be a limit in the x-axis. That means, that
-#' patients with days_to_deth > cutoff will be set to Alive.
+#' @param xlim x axis limits e.g. xlim = c(0, 1000). Present narrower X axis, but not affect survival estimates.
 #' @param main main title of the plot
 #' @param labels labels of the plot
 #' @param ylab y axis text of the plot
 #' @param xlab x axis text of the plot
 #' @param filename The name of the pdf file.
-#' @param color Define the colors of the lines.
+#' @param color Define the colors/Pallete for lines.
+#' @param risk.table show or not the risk table
 #' @param width Image width
 #' @param height Image height
-#' @param print.value Print pvalue in the plot? Default: TRUE
-#' @param legend.position Legend position ("top", "right","left","bottom")
-#' @param legend.title.position  Legend title position ("top", "right","left","bottom")
-#' @param legend.ncols Number of columns of the legend
-#' @param add.legend If true, legend is created. Otherwise names will
-#' be added to the last point in the lines.
-#' @param add.points If true, shows each death at the line of survival curves
+#' @param pvalue show p-value of log-rank test
+#' @param conf.int  show confidence intervals for point estimaes of survival curves.
+#' @param ... Further arguments passed to \link[survminer]{ggsurvplot}.
 #' @param dpi Figure quality
-#' @importFrom GGally ggsurv
+#' @importFrom survminer ggsurvplot
 #' @importFrom survival survfit Surv
 #' @importFrom scales percent
 #' @importFrom ggthemes theme_base
 #' @importFrom ggrepel geom_text_repel
+#' @importFrom gridExtra rbind.gtable
 #' @export
 #' @return Survival plot
 #' @examples
 #' clin <- GDCquery_clinic("TCGA-LGG", type = "clinical", save.csv = FALSE)
 #' TCGAanalyze_survival(clin, clusterCol="gender")
+#' TCGAanalyze_survival(clin, clusterCol="gender", xlim = 1000)
+#' TCGAanalyze_survival(clin,
+#'                      clusterCol="gender",
+#'                      risk.table = FALSE,
+#'                      conf.int = FALSE,
+#'                      color = c("pink","blue"))
+#' TCGAanalyze_survival(clin,
+#'                      clusterCol="gender",
+#'                      risk.table = FALSE,
+#'                      xlim = c(100,1000),
+#'                      conf.int = FALSE,
+#'                      color = c("Dark2"))
 TCGAanalyze_survival <- function(data,
                                  clusterCol = NULL,
                                  legend = "Legend",
                                  labels = NULL,
-                                 cutoff = 0,
+                                 risk.table = TRUE,
+                                 xlim = NULL,
                                  main = "Kaplan-Meier Overall Survival Curves",
                                  ylab = "Probability of survival",
                                  xlab = "Time since diagnosis (days)",
@@ -131,12 +141,9 @@ TCGAanalyze_survival <- function(data,
                                  height = 8,
                                  width = 12,
                                  dpi = 300,
-                                 legend.position = "inside",
-                                 legend.title.position = "top",
-                                 legend.ncols = 1,
-                                 add.legend = TRUE,
-                                 print.value = TRUE,
-                                 add.points = TRUE
+                                 pvalue = TRUE,
+                                 conf.int = TRUE,
+                                 ...
 ) {
     .e <- environment()
 
@@ -161,84 +168,50 @@ TCGAanalyze_survival <- function(data,
     }
     # create a column to be used with survival package, info need
     # to be TRUE(DEAD)/FALSE (ALIVE)
-    data$s <- grepl("dead",data$vital_status,ignore.case = TRUE)
+    data$s <- grepl("dead|deceased",data$vital_status,ignore.case = TRUE)
 
     # Column with groups
     data$type <- as.factor(data[,clusterCol])
-
+    data <-  data[,c("days_to_death","s","type")]
     # create the formula for survival analysis
     f.m <- formula(Surv(as.numeric(data$days_to_death),event=data$s) ~ data$type)
-    fit <- survfit(f.m, data = data)
-
-    # calculating p-value
-    pvalue <- summary(coxph(
-        Surv(as.numeric(data$days_to_death),event=data$s)
-        ~ data$type))$logtest[3]
-
-
-    surv <- ggsurv(fit, CI = "def", plot.cens = FALSE,
-                   surv.col = "gg.def",
-                   cens.col = "red", lty.est = 1,
-                   lty.ci = 2, cens.shape = 3,
-                   back.white = TRUE,
-                   xlab = xlab, ylab = ylab, main = main)
-
-    if (print.value){
-        surv <- surv + annotate("text",x = -Inf,y = -Inf, hjust = -0.1,
-                                vjust = -1.0, size = 6,
-                                label = paste0("Log-Rank P-value = ",
-                                               format(pvalue,
-                                                      scientific = TRUE,
-                                                      digits = 2)))
-    }
-
-    if (cutoff != 0) {
-        surv <- surv + ggplot2::coord_cartesian(xlim = c(0, cutoff))
-    }
+    fit <- do.call(survfit, list(formula = f.m, data = data))
 
     label.add.n <- function(x) {
         paste0(x, " (n = ",
-               nrow(data[data[,clusterCol] == x,]), ")")
+               nrow(data[data[,"type"] == x,]), ")")
     }
 
     if(is.null(labels)){
         labels <- sapply(levels(data$type),label.add.n)
     }
-    surv <- surv + scale_colour_manual(name = legend,
-                                       labels = labels,
-                                       values=color)
-    if(add.points){
-        surv <- surv + geom_point(aes(colour = group),
-                                  shape = 3,size = 2)
-    }
-    surv <- surv + guides(linetype = FALSE) +
-        scale_y_continuous(labels = scales::percent) +
-        theme_base()
 
-    if(add.legend == TRUE){
-        if(legend.position == "inside"){
-            surv <- surv +  theme(legend.justification=c(1,1),
-                                  legend.background = element_rect(colour = "black"),
-                                  legend.position=c(1,1))
-        } else {
-            surv <- surv +  theme(legend.position=legend.position)
-        }
-        surv <- surv +
-            guides(color=guide_legend(override.aes=list(size=3)),
-                   fill=guide_legend(ncol=legend.ncols,title.position = legend.title.position, title.hjust =0.5))
+    surv <- ggsurvplot(
+        fit,                       # survfit object with calculated statistics.
+        risk.table = risk.table,   # show risk table.
+        pval = pvalue,             # show p-value of log-rank test.
+        conf.int = conf.int,       # show confidence intervals for point estimaes of survival curves.
+        xlim = xlim,               # present narrower X axis, but not affect survival estimates.
+        main = main,               # Title
+        xlab = xlab,               # customize X axis label.
+        ggtheme = theme_light(),   # customize plot and risk table with a theme.
+        legend.title = legend,     # Legend title
+        legend.labs = labels,      # change legend labels.
+        palette =  color,          # custom color palettes.
+        ...
+    )
 
-    }
-
-    if(add.legend == FALSE){
-        surv <- surv +  geom_text_repel(data=ddply(surv$data, .(group), function(x) x[nrow(x), ]),
-                                        aes(label = group, color = factor(group)),
-                                        segment.color = '#555555', segment.size = 0.0,
-                                        size = 3, show.legend = FALSE) +
-            theme(legend.position="none")
-    }
 
     if(!is.null(filename)) {
-        ggsave(surv, filename = filename, width = width, height = height, dpi = dpi)
+        ggsave(surv$plot, filename = filename, width = width, height = height, dpi = dpi)
+        message(paste0("File saved as: ", filename))
+        if(risk.table){
+            g1 <- ggplotGrob(surv$plot)
+            g2 <- ggplotGrob(surv$table)
+            min_ncol <- min(ncol(g2), ncol(g1))
+            g <- rbind.gtable(g1[, 1:min_ncol], g2[, 1:min_ncol], size="last")
+            ggsave(g, filename = filename, width = width, height = height, dpi = dpi)
+        }
     } else {
         return(surv)
     }
@@ -337,7 +310,7 @@ TCGAvisualize_meanMethylation <- function(data,
                                           legend.position = "top",
                                           legend.title.position = "top",
                                           legend.ncols = 3,
-                                          add.axis.x.text = FALSE,
+                                          add.axis.x.text = TRUE,
                                           width=10,
                                           height=10,
                                           dpi=600,
@@ -361,15 +334,15 @@ TCGAvisualize_meanMethylation <- function(data,
     }
 
     if (!is.null(subgroupCol)){
-        df <- data.frame(mean = mean, groups = groups, subgroups = subgroups)
+        df <- data.frame(mean = mean, groups = groups, subgroups = subgroups, samples = colnames(data))
     } else {
-        df <- data.frame(mean = mean, groups = groups)
+        df <- data.frame(mean = mean, groups = groups,samples = colnames(data))
     }
     message("==================== DATA Summary ====================")
     data.summary <- ddply(df, .(groups), summarize,
                           Mean=mean(mean), Median=median(mean),
                           Max = max(mean),Min=min(mean))
-    print(kable(data.summary))
+    print(data.summary)
     message("==================== END DATA Summary ====================")
 
     #comb2by2 <- combinations(length(levels(droplevels(df$groups))),
@@ -392,7 +365,7 @@ TCGAvisualize_meanMethylation <- function(data,
             )
         }
         message("==================== T test results ====================")
-        print(kable(mat.pvalue))
+        print(mat.pvalue)
         message("==================== END T test results ====================")
 
     }
@@ -429,7 +402,7 @@ TCGAvisualize_meanMethylation <- function(data,
     } else if(sort == "median.desc") {
         x <- reorder(df$groups, -df$mean, FUN="median")
     }
-
+    x <- droplevels(x)
     if (is.null(labels)) {
         labels <- levels(x)
         labels <-  sapply(labels,label.add.n)
@@ -460,8 +433,7 @@ TCGAvisualize_meanMethylation <- function(data,
     }
     if(add.axis.x.text){
         axis.text.x <- element_text(angle = axis.text.x.angle,
-                                    vjust = 0.5,
-                                    size = 16)
+                                    vjust = 0.5)
     } else {
         axis.text.x <-  element_blank()
     }
@@ -469,21 +441,9 @@ TCGAvisualize_meanMethylation <- function(data,
     p <- p + scale_x_discrete(limits=levels(x))
     p <- p + ylab(ylab) + xlab(xlab) + labs(title = title) +
         labs(shape=subgroup.legend, color=group.legend) +
-        theme_bw() +
-        theme(axis.title.x = element_text(face = "bold", size = 20),
-              axis.text.x = axis.text.x,
-              axis.title.y = element_text(face = "bold",
-                                          size = 20),
-              axis.text.y = element_text(size = 16),
-              plot.title = element_text(face = "bold", size = 16),
-              legend.text = element_text(size = 14),
-              legend.title = element_text(size = 14),
-              axis.text= element_text(size = 22),
-              panel.border = element_blank(),
-              panel.grid.major = element_blank(),
-              panel.grid.minor = element_blank(),
-              axis.line.x=element_line(colour = "black"),
-              axis.line.y=element_line(colour = "black"),
+        theme_minimal() +
+        theme(axis.text.x = axis.text.x,
+              plot.title = element_text(face = "bold", hjust = 0.5),
               legend.position=legend.position,
               legend.key = element_rect(colour = 'white')) +
         guides(fill=guide_legend(ncol=legend.ncols,title.position = legend.title.position, title.hjust =0.5))
@@ -500,7 +460,7 @@ TCGAvisualize_meanMethylation <- function(data,
                                                 digits = 2)))
     }
     if(!is.null(y.limits)){
-        p <- p + expand_limits(x = 0, y = y.limits )
+        p <- p + expand_limits(y = y.limits )
     }
 
     # saving box plot to analyse it
@@ -664,8 +624,9 @@ calculate.pvalues <- function(data,
 #'    Observation: This function automatically is called by TCGAanalyse_DMR
 #' @param x x-axis data
 #' @param y y-axis data
-#' @param y.cut p-values threshold. Default: 0.01
-#' @param x.cut  x-axis threshold. Default: 0.0
+#' @param y.cut p-values threshold.
+#' @param x.cut  x-axis threshold. Default: 0.0 If you give only one number (e.g. 0.2) the cut-offs will be
+#'  -0.2 and 0.2. Or you can give diffenrent cutt-ofs as a vector (e.g. c(-0.3,0.4))
 #' @param filename Filename. Default: volcano.pdf, volcano.svg, volcano.png
 #' @param legend Legend title
 #' @param color vector of colors to be used in graph
@@ -701,12 +662,17 @@ calculate.pvalues <- function(data,
 #' TCGAVisualize_volcano(x,y,filename = NULL,y.cut = 10000000,x.cut=0.8,
 #'                       names = as.character(1:length(x)), legend = "Status",
 #'                       names.fill = TRUE, highlight = c("1","2"),show="both")
+#' TCGAVisualize_volcano(x,y,filename = NULL,y.cut = 10000000,x.cut=c(-0.3,0.8),
+#'                       names = as.character(1:length(x)), legend = "Status",
+#'                       names.fill = TRUE, highlight = c("1","2"),show="both")
 #' while (!(is.null(dev.list()["RStudioGD"]))){dev.off()}
 TCGAVisualize_volcano <- function(x,y,
                                   filename = "volcano.pdf",
                                   ylab =  expression(paste(-Log[10],
                                                            " (FDR corrected -P values)")),
-                                  xlab=NULL, title=NULL, legend=NULL,
+                                  xlab=NULL,
+                                  title="Volcano plot",
+                                  legend=NULL,
                                   label=NULL, xlim=NULL, ylim=NULL,
                                   color = c("black", "red", "green"),
                                   names=NULL,
@@ -741,20 +707,30 @@ TCGAVisualize_volcano <- function(x,y,
     # get significant data
     sig <-  y < y.cut
     sig[is.na(sig)] <- FALSE
+
+    # If x.cut
+    if(length(x.cut) == 1) {
+        x.cut.min <- -x.cut
+        x.cut.max <- x.cut
+    }
+    if(length(x.cut) == 2) {
+        x.cut.min <- x.cut[1]
+        x.cut.max <- x.cut[2]
+    }
+
     # hypermethylated/up regulated samples compared to old state
-    up <- x  > x.cut
+    up <- x  > x.cut.max
     up[is.na(up)] <- FALSE
     if (any(up & sig)) threshold[up & sig] <- "2"
 
     # hypomethylated/ down regulated samples compared to old state
-    down <-  x < (-x.cut)
+    down <-  x < x.cut.min
     down[is.na(down)] <- FALSE
     if (any(down & sig)) threshold[down & sig] <- "3"
 
     if(!is.null(highlight)){
         idx <- which(names %in% highlight)
         if(length(idx) >0 ){
-            print(idx)
             threshold[which(names %in% highlight)]  <- "4"
             color <- c(color,highlight.color)
             names(color) <- as.character(1:4)
@@ -777,9 +753,9 @@ TCGAVisualize_volcano <- function(x,y,
                 environment = .e) +
         geom_point() +
         ggtitle(title) + ylab(ylab) + xlab(xlab) +
-        geom_vline(aes(xintercept = -x.cut),
-                   colour = "black",linetype = "dashed") +
-        geom_vline(aes(xintercept = x.cut),
+        geom_vline(aes(xintercept = x.cut.min),
+                   colour = "black", linetype = "dashed") +
+        geom_vline(aes(xintercept = x.cut.max),
                    colour = "black", linetype = "dashed") +
         geom_hline(aes(yintercept = -1 * log10(y.cut)),
                    colour = "black", linetype = "dashed") +
@@ -791,6 +767,7 @@ TCGAVisualize_volcano <- function(x,y,
                            panel.grid.major = element_blank(),
                            panel.grid.minor = element_blank(),
                            legend.text = element_text(size = 10),
+                           plot.title = element_text(hjust = 0.5),
                            axis.line.x=element_line(colour = "black"),
                            axis.line.y=element_line(colour = "black"),
                            legend.position="top",
@@ -979,8 +956,8 @@ TCGAanalyze_DMR <- function(data,
     if(class(data)!= class(as(SummarizedExperiment(),"RangedSummarizedExperiment"))){
         stop(paste0("Sorry, but I'm expecting a Summarized Experiment object, but I got a: ", class(data)))
     }
-    # Check if object has NAs
-    if(any(rowSums(!is.na(assay(data))))== 0){
+    # Check if object has NAs for all samples
+    if(any(rowSums(!is.na(assay(data)))== 0)){
         stop(paste0("Sorry, but we found some probes with NA for all samples in your data, please either remove/or replace them"))
     }
 
@@ -1041,11 +1018,13 @@ TCGAanalyze_DMR <- function(data,
     }
     if (!(pcol %in% colnames(values(data))) | overwrite) {
         if(calculate.pvalues.probes == "all"){
+            suppressWarnings({
             data <- calculate.pvalues(data, groupCol, group1, group2,
                                       paired = paired,
                                       method = adj.method,
                                       cores = cores,
                                       save = save)
+            })
         } else  if(calculate.pvalues.probes == "differential"){
             message(paste0("Caculating p-values only for probes with a difference of mean methylation equal or higher than ", diffmean.cut))
             print(diffcol)
@@ -1554,7 +1533,7 @@ TCGAvisualize_starburst <- function(met,
               axis.line.y=element_line(colour = "black"),
               legend.position="top",
               legend.key = element_rect(colour = 'white'),
-              plot.title = element_text(face = "bold", size = 16),
+              plot.title = element_text(face = "bold", size = 16,hjust = 0.5),
               legend.text = element_text(size = 14),
               legend.title = element_text(size = 14),
               axis.text= element_text(size = 14),

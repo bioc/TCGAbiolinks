@@ -47,6 +47,7 @@ TCGAanalyze_Clustering <- function(tabDF, method,  methodHC = "ward.D2"){
 #' @param height Image height
 #' @param datatype is a string from RangedSummarizedExperiment assay
 #' @importFrom grDevices dev.list
+#' @importFrom SummarizedExperiment assays
 #' @export
 #' @return Plot with array array intensity correlation and boxplot of correlation samples by samples
 TCGAanalyze_Preprocessing <- function(object,
@@ -54,7 +55,7 @@ TCGAanalyze_Preprocessing <- function(object,
                                      filename = NULL,
                                      width = 500,
                                      height = 500,
-                                     datatype = "raw_counts"){
+                                     datatype = names(assays(object))[1]){
 
     if (!(is.null(dev.list()["RStudioGD"]))){dev.off()}
 
@@ -164,25 +165,29 @@ TCGAanalyze_Preprocessing <- function(object,
 #' @param ThreshTop is a quantile threshold to identify samples with high expression of a gene
 #' @param ThreshDown is a quantile threshold to identify samples with low expression of a gene
 #' @param p.cut p.values threshold. Default: 0.05
+#' @param group1 a string containing the barcode list of the samples in in control group
+#' @param group2 a string containing the barcode list of the samples in in disease group
 #' @importFrom survival Surv survdiff survfit
 #' @export
 #' @return table with survival genes pvalues from KM.
 #' @examples
 #'  clinical_patient_Cancer <- GDCquery_clinic("TCGA-BRCA","clinical")
 #'  dataBRCAcomplete <- log2(BRCA_rnaseqv2)
-#'  # Selecting only 10 genes for example
-#'  dataBRCAcomplete <- dataBRCAcomplete[1:10,]
+#'  # Selecting only 100 genes for example
+#'  dataBRCAcomplete <- dataBRCAcomplete[1:100,]
+#'  dataGE <- dataBRCAcomplete
+#'  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
+#'  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
+#'  
 #'  tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
 #'  Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
 TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
-                                 ThreshTop=0.67, ThreshDown=0.33,p.cut=0.05){
+                                 ThreshTop=0.67, ThreshDown=0.33,p.cut=0.05,
+                                 group1, group2){
 
-
-    samplesNT <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
-    samplesTP <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
     Genelist <- intersect(rownames(dataGE),Genelist)
-    dataCancer <- dataGE[Genelist,samplesTP]
-    dataNormal <- dataGE[Genelist,samplesNT]
+    dataCancer <- dataGE[Genelist,group2]
+    dataNormal <- dataGE[Genelist,group1]
     colnames(dataCancer)  <- substr(colnames(dataCancer),1,12)
     cfu<-clinical_patient[clinical_patient[,"bcr_patient_barcode"] %in% substr(colnames(dataCancer),1,12),]
     if("days_to_last_followup" %in% colnames(cfu)) colnames(cfu)[grep("days_to_last_followup",colnames(cfu))] <- "days_to_last_follow_up"
@@ -356,6 +361,14 @@ TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
     tabSurvKM <- tabSurvKM[,-1]
     tabSurvKM <- tabSurvKM[order(tabSurvKM$pvalue, decreasing=FALSE),]
 
+    #'  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
+    #'  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
+    
+    colnames(tabSurvKM) <- gsub("Cancer","Group2",colnames(tabSurvKM))
+    colnames(tabSurvKM) <- gsub("Tumor","Group2",colnames(tabSurvKM))
+    colnames(tabSurvKM) <- gsub("Normal","Group1",colnames(tabSurvKM))
+    
+    
     return(tabSurvKM)
 }
 
@@ -1006,3 +1019,56 @@ TCGAanalyze_analyseGRN<- function(TFs, normCounts,kNum) {
   return(miTFGenes)
 
 }
+
+#' @title Generate pathview graph
+#' @description TCGAanalyze_Pathview pathway based data integration and visualization.
+#' @param dataDEGs dataDEGs
+#' @param pathwayKEGG pathwayKEGG
+#' @importFrom clusterProfiler bitr
+#' @importFrom pathview pathview
+#' @export
+#' @return an adjacent matrix
+TCGAanalyze_Pathview <- function(dataDEGs, pathwayKEGG = "hsa05200" ){
+
+  # Converting Gene symbol to gene ID
+  eg = as.data.frame(bitr(dataDEGsFiltLevel$mRNA,
+                          fromType="SYMBOL",
+                          toType="ENTREZID",
+                          OrgDb="org.Hs.eg.db"))
+  eg <- eg[!duplicated(eg$SYMBOL),]
+  dataDEGsFiltLevel <- dataDEGsFiltLevel[dataDEGsFiltLevel$mRNA %in% eg$SYMBOL,]
+  dataDEGsFiltLevel <- dataDEGsFiltLevel[order(dataDEGsFiltLevel$mRNA,decreasing=FALSE),]
+  eg <- eg[order(eg$SYMBOL,decreasing=FALSE),]
+  dataDEGsFiltLevel$GeneID <- eg$ENTREZID
+  dataDEGsFiltLevel_sub <- subset(dataDEGsFiltLevel, select = c("GeneID", "logFC"))
+  genelistDEGs <- as.numeric(dataDEGsFiltLevel_sub$logFC)
+  names(genelistDEGs) <- dataDEGsFiltLevel_sub$GeneID
+
+  hsa05200 <- pathview(gene.data  = genelistDEGs,
+                       pathway.id = pathwayKEGG,
+                       species    = "hsa",
+                       limit      = list(gene=as.integer(max(abs(genelistDEGs)))))
+
+}
+
+
+#' @title infer gene regulatory networks
+#' @description TCGAanalyze_networkInference taking expression data as input, this will return an adjacency matrix of interactions
+#' @param data expression data, genes in columns, samples in rows
+#' @param optionMethod inference method, chose from aracne, c3net, clr and mrnet
+#' @importFrom c3net c3net
+#' @importFrom minet minet
+#' @export
+#' @return an adjacent matrix
+TCGAanalyze_networkInference <- function(data, optionMethod = "clr" ){
+  # Converting Gene symbol to gene ID
+
+  if(optionMethod == "c3net"){
+    net <- c3net(t(data))
+  }else{
+    net <- minet(data, method = optionMethod)
+  }
+  return(net)
+
+}
+

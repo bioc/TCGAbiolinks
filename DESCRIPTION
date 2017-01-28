@@ -2,8 +2,8 @@ Package: TCGAbiolinks
 Type: Package
 Title: TCGAbiolinks: An R/Bioconductor package for integrative analysis with
     TCGA data
-Version: 2.2.6
-Date: 2015-12-13
+Version: 2.2.7
+Date: 2016-12-7
 Author: Antonio Colaprico,
     Tiago Chedraoui Silva,
     Catharina Olsen,
@@ -23,8 +23,9 @@ Depends:
     R (>= 3.2)
 Imports:
     downloader (>= 0.4),
-    GGally,
+    survminer,
     grDevices,
+    gridExtra,
     graphics,
     tibble,
     GenomicRanges,
@@ -37,6 +38,8 @@ Imports:
     edgeR (>= 3.0.0),
     jsonlite (>= 1.0.0),
     plyr,
+    c3net,
+    minet,
     knitr,
     methods,
     biomaRt,
@@ -64,6 +67,8 @@ Imports:
     RColorBrewer,
     doParallel,
     dplyr,
+    clusterProfiler,
+    pathview,
     parallel,
     xml2,
     httr (>= 1.2.1),

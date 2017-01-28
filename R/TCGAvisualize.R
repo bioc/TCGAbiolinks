@@ -207,6 +207,9 @@ TCGAvisualize_SurvivalCoxNET <- function(clinical_patient,
 #' @param dataDEGsFiltLevel table with DEGs, log Fold Change (FC), false discovery rate (FDR),
 #' the gene expression level, etc, from function TCGAanalyze_LevelTab.
 #' @param ntopgenes number of DEGs genes to plot in PCA
+#' @param group1 a string containing the barcode list of the samples in in control group
+#' @param group2 a string containing the barcode list of the samples in in disease group
+#' the name of the group
 #' @import ggplot2
 #' @export
 #' @return principal components analysis (PCA) plot of PC1 and PC2
@@ -217,14 +220,17 @@ TCGAvisualize_SurvivalCoxNET <- function(clinical_patient,
 #' # quantile filter of genes
 #' dataFilt <- TCGAanalyze_Filtering(tabDF = dataBRCA, method = "quantile", qnt.cut =  0.25)
 #' # Principal Component Analysis plot for ntop selected DEGs
-#' pca <- TCGAvisualize_PCA(dataFilt,dataDEGsFiltLevel, ntopgenes = 200)
+#'     # selection of normal samples "NT"
+#'     group1 <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("NT"))
+#'     # selection of normal samples "TP"
+#'     group2 <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("TP"))
+#' pca <- TCGAvisualize_PCA(dataFilt,dataDEGsFiltLevel, ntopgenes = 200, group1, group2)
 #' if (!(is.null(dev.list()["RStudioGD"]))){dev.off()}
-TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes) {
+TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes,group1, group2) {
     ComparisonSelected <- "Normal vs Tumor"
     TitlePlot <- paste0("PCA ", "top ", ntopgenes,
                         " Up and down diff.expr genes between ",
                         ComparisonSelected)
-
 
     dataFilt <- dataFilt[!duplicated(GenesCutID(rownames(dataFilt))),]
     rownames(dataFilt) <- GenesCutID(rownames(dataFilt))
@@ -235,21 +241,14 @@ TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes) {
     color1 <- "blue"
     color2 <- "red"
 
-    # selection of normal samples "NT"
-    samplesNT <- TCGAquery_SampleTypes(colnames(dataFilt),
-                                       typesample = c("NT"))
-    # selection of tumor samples "TP"
-    samplesTP <- TCGAquery_SampleTypes(colnames(dataFilt),
-                                       typesample = c("TP"))
-
-    nsample1 <- length(samplesNT)
-    nsample2 <- length(samplesTP)
+    nsample1 <- length(group1)
+    nsample2 <- length(group2)
 
     #sampleColors <- rep(c(color1,color2), c(nsample1, nsample2))
-    #sampleColors <- rep(c("blue","red"), c(length(samplesNT),
-    #                     length(samplesTP)))
-    sampleColors <- c(rep("blue", length(samplesNT)),
-                      rep("red", length(samplesTP)))
+    #sampleColors <- rep(c("blue","red"), c(length(group1),
+    #                     length(group2)))
+    sampleColors <- c(rep("blue", length(group1)),
+                      rep("red", length(group2)))
 
 
     names(sampleColors) <- colnames(expr2)
@@ -910,7 +909,8 @@ unlistlabels <- function(lab) {
 #' @param dist.col distance between columns in the plot
 #' @param dist.row distance between rows in the plot
 #' @param label.font.size Size of the fonts
-#' @param row.order Order the genes (rows) Default:FALSE. Genes with more mutations will be in the first rows
+#' @param row.order Order the genes (rows) Default:TRUE. Genes with more mutations will be in the first rows
+#' @param col.order Order columns. Default:TRUE.
 #' @param annotation Matrix or data frame with the annotation.
 #' Should have a column bcr_patient_barcode with the same ID of the mutation object
 #' @param annotation.position Position of the annotation "bottom" or "top"
@@ -926,7 +926,7 @@ unlistlabels <- function(lab) {
 #' @importFrom grid gpar grid.rect
 #' @importFrom data.table dcast setDT setDF :=
 #' @examples
-#' mut <- GDCquery_Maf(tumor = "ACC", pipelines = "muse")
+#' mut <- GDCquery_Maf(tumor = "ACC", pipelines = "mutect")
 #' TCGAvisualize_oncoprint(mut = mut, genes = mut$Hugo_Symbol[1:10], rm.empty.columns = TRUE)
 #' TCGAvisualize_oncoprint(mut = mut, genes = mut$Hugo_Symbol[1:10],
 #'                  filename = "onco.pdf",
@@ -962,7 +962,8 @@ TCGAvisualize_oncoprint <- function (mut,
                                      dist.col = 0.5,
                                      dist.row = 0.5,
                                      information = "Variant_Type",
-                                     row.order = FALSE,
+                                     row.order = TRUE,
+                                     col.order = TRUE,
                                      heatmap.legend.side = "bottom",
                                      annotation.legend.side = "bottom"){
 
@@ -977,10 +978,10 @@ TCGAvisualize_oncoprint <- function (mut,
 
     if(!rm.empty.columns){
         formula <- paste0("Tumor_Sample_Barcode + Hugo_Symbol ~ ", information)
-        mat <- dcast(mut, as.formula(formula),value.var = "value",fill = 0,drop = FALSE)
+        suppressMessages({mat <- dcast(mut, as.formula(formula),value.var = "value",fill = 0,drop = FALSE)})
     } else {
         formula <- paste0("Tumor_Sample_Barcode + Hugo_Symbol ~ ", information)
-        mat <- dcast(mut, as.formula(formula),value.var = "value",fill = 0,drop = TRUE)
+        suppressMessages({mat <- dcast(mut, as.formula(formula),value.var = "value",fill = 0,drop = TRUE)})
     }
 
     # mutation in the file
@@ -1050,8 +1051,11 @@ TCGAvisualize_oncoprint <- function (mut,
 
     if(missing(annotation)) annotation <- NULL
     if(!is.null(annotation)){
+        if(!"bcr_patient_barcode" %in% colnames(annotation))
+            stop("bcr_patient_barcode column should be in the annotation")
         idx <- match(substr(colnames(mat),1,12),annotation$bcr_patient_barcode)
-
+        if(all(is.na(idx)))
+            stop(" We couldn't match the columns names with the bcr_patient_barcode column in the annotation object")
         annotation <- annotation[idx,]
 
         annotation$bcr_patient_barcode <- NULL
@@ -1102,7 +1106,8 @@ TCGAvisualize_oncoprint <- function (mut,
         nrow <- 10
         title_position <- "topcenter"
     }
-    if(is.null(annotation) & !row.order){
+
+    if(is.null(annotation) & !row.order & !col.order){
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        row_order = NULL,
                        remove_empty_columns = FALSE,
@@ -1125,7 +1130,7 @@ TCGAvisualize_oncoprint <- function (mut,
                                                    nrow = nrow, title_position = title_position
                        )
         )
-    } else if(!is.null(annotation) & annotation.position == "bottom" & !row.order){
+    } else if(!is.null(annotation) & annotation.position == "bottom" & !row.order & !col.order){
 
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        row_order = NULL,
@@ -1151,7 +1156,7 @@ TCGAvisualize_oncoprint <- function (mut,
                        )
         )
 
-    } else if(!is.null(annotation) & annotation.position == "top" & !row.order){
+    } else if(!is.null(annotation) & annotation.position == "top" & !row.order  & !col.order){
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        row_order = NULL,
                        remove_empty_columns = FALSE,
@@ -1175,7 +1180,7 @@ TCGAvisualize_oncoprint <- function (mut,
                                                    nrow = nrow, title_position = title_position
                        )
         )
-    }  else if(is.null(annotation) & row.order){
+    }  else if(is.null(annotation) & row.order  & !col.order){
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        remove_empty_columns = FALSE,
                        show_column_names = show.column.names,
@@ -1197,7 +1202,7 @@ TCGAvisualize_oncoprint <- function (mut,
                                                    nrow = nrow, title_position = title_position
                        )
         )
-    } else if(!is.null(annotation) & annotation.position == "bottom" & row.order){
+    } else if(!is.null(annotation) & annotation.position == "bottom" & row.order & !col.order){
 
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        remove_empty_columns = FALSE,
@@ -1222,12 +1227,149 @@ TCGAvisualize_oncoprint <- function (mut,
                        )
         )
 
-    } else if(!is.null(annotation) & annotation.position == "top" & row.order){
+    } else if(!is.null(annotation) & annotation.position == "top" & row.order & !col.order){
         p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
                        remove_empty_columns = FALSE,
                        show_column_names = show.column.names,
                        show_row_barplot = show.row.barplot,
                        column_order = NULL, # Do not sort the columns
+                       alter_fun = alter_fun, col = color,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       top_annotation = annotHeatmap,
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"),  # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+    } else if(is.null(annotation) & !row.order & col.order){
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       row_order = NULL,
+                       remove_empty_columns = FALSE,
+                       show_column_names = show.column.names,
+                       show_row_barplot = show.row.barplot,
+                       alter_fun = alter_fun, col = color,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"), # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+    } else if(!is.null(annotation) & annotation.position == "bottom" & !row.order & col.order){
+
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       row_order = NULL,
+                       remove_empty_columns = FALSE,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       show_row_barplot = show.row.barplot,
+                       show_column_names = show.column.names,
+                       alter_fun = alter_fun, col = color,
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       bottom_annotation = annotHeatmap,
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"), # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+
+    } else if(!is.null(annotation) & annotation.position == "top" & !row.order & col.order){
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       row_order = NULL,
+                       remove_empty_columns = FALSE,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       show_column_names = show.column.names,
+                       show_row_barplot = show.row.barplot,
+                       alter_fun = alter_fun, col = color,
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       top_annotation = annotHeatmap,
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"),  # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+    }  else if(is.null(annotation) & row.order & col.order){
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       remove_empty_columns = FALSE,
+                       show_column_names = show.column.names,
+                       show_row_barplot = show.row.barplot,
+                       alter_fun = alter_fun, col = color,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"), # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+    } else if(!is.null(annotation) & annotation.position == "bottom" & row.order & col.order){
+
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       remove_empty_columns = FALSE,
+                       column_names_gp = gpar(fontsize = column.names.size),
+                       show_row_barplot = show.row.barplot,
+                       show_column_names = show.column.names,
+                       alter_fun = alter_fun, col = color,
+                       row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
+                       pct_gp = gpar(fontsize = rows.font.size), # set size for percentage labels
+                       axis_gp = gpar(fontsize = rows.font.size),# size of axis
+                       #column_title = "OncoPrint for TCGA LGG, genes in Glioma signaling",
+                       #column_title_gp = gpar(fontsize = 11),
+                       row_barplot_width = unit(2, "cm"), #size barplot
+                       bottom_annotation = annotHeatmap,
+                       heatmap_legend_param = list(title = label.title, at = names(color),
+                                                   labels = names(color),
+                                                   title_gp = gpar(fontsize = label.font.size, fontface = "bold"),
+                                                   labels_gp = gpar(fontsize = label.font.size), # size labels
+                                                   grid_height = unit(8, "mm"), # vertical distance labels
+                                                   nrow = nrow, title_position = title_position
+                       )
+        )
+
+    } else if(!is.null(annotation) & annotation.position == "top" & row.order & col.order){
+        p <- oncoPrint(mat, get_type = function(x) strsplit(x, ";")[[1]],
+                       remove_empty_columns = FALSE,
+                       show_column_names = show.column.names,
+                       show_row_barplot = show.row.barplot,
                        alter_fun = alter_fun, col = color,
                        column_names_gp = gpar(fontsize = column.names.size),
                        row_names_gp = gpar(fontsize = rows.font.size),  # set size for row names
@@ -1248,6 +1390,9 @@ TCGAvisualize_oncoprint <- function (mut,
     }
 
     draw(p, heatmap_legend_side = heatmap.legend.side, annotation_legend_side = annotation.legend.side)
-    if(!missing(filename)) dev.off()
+    if(!missing(filename)) {
+        dev.off()
+        message(paste0("File saved as: ", filename ))
+    }
 
 }
