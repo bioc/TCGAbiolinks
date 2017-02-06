@@ -56,10 +56,9 @@ from survival package
  dataGE <- dataBRCAcomplete
  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
- 
+
  tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
  Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
 }
-

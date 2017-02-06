@@ -178,7 +178,7 @@ TCGAanalyze_Preprocessing <- function(object,
 #'  dataGE <- dataBRCAcomplete
 #'  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
 #'  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
-#'  
+#'
 #'  tabSurvKM<-TCGAanalyze_SurvivalKM(clinical_patient_Cancer,dataBRCAcomplete,
 #'  Genelist = rownames(dataBRCAcomplete), Survresult = FALSE,ThreshTop=0.67,ThreshDown=0.33)
 TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
@@ -363,12 +363,12 @@ TCGAanalyze_SurvivalKM<-function(clinical_patient,dataGE,Genelist, Survresult,
 
     #'  group1 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("NT"))
     #'  group2 <- TCGAquery_SampleTypes(colnames(dataGE), typesample = c("TP"))
-    
+
     colnames(tabSurvKM) <- gsub("Cancer","Group2",colnames(tabSurvKM))
     colnames(tabSurvKM) <- gsub("Tumor","Group2",colnames(tabSurvKM))
     colnames(tabSurvKM) <- gsub("Normal","Group1",colnames(tabSurvKM))
-    
-    
+
+
     return(tabSurvKM)
 }
 
@@ -475,8 +475,11 @@ TCGAanalyze_Filtering <- function(tabDF,method,
 #' dataNorm <- TCGAbiolinks::TCGAanalyze_Normalization(dataBRCA, geneInfo)
 TCGAanalyze_Normalization <- function(tabDF,geneInfo,method = "geneLength"){
 
+    # Check if we have a SE, we need a gene expression matrix
+    if(is(tabDF,"SummarizedExperiment")) tabDF <- assay(tabDF)
+
     geneInfo <- geneInfo[!is.na(geneInfo[,1]),]
-    geneInfo <-as.data.frame(geneInfo)
+    geneInfo <- as.data.frame(geneInfo)
     geneInfo$geneLength <- as.numeric(as.character(geneInfo$geneLength))
     geneInfo$gcContent <- as.numeric(as.character(geneInfo$gcContent))
 
@@ -925,8 +928,6 @@ TCGAanalyze_EA <- function(GeneName,RegulonList,TableEnrichment,
 #' @export
 #' @return List of list with tables in 2 by 2 comparison
 #' of the top-ranked genes from a linear model fitted by DEA's limma
-#' @examples
-#' query <- TCGAquery(tumor = "lgg")
 TCGAanalyze_DEA_Affy <- function(AffySet, FC.cut = 0.01){
 
     Pdatatable <- phenoData(AffySet)
