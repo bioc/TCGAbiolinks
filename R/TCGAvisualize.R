@@ -352,7 +352,7 @@ TCGAvisualize_EAbarplot <- function(tf, GOMFTab, GOBPTab, GOCCTab, PathTab, nBar
     par(mfrow = mfrow)
 
     if(!missing(GOBPTab)){
-        if(!is.null(GOBPTab) & !is.na(GOBPTab)){
+        if(!is.null(GOBPTab) & !all(is.na(GOBPTab))){
             # Plotting GOBPTab
             toPlot <- splitFun(tf, GOBPTab, nBar)
             xAxis <- barplot(toPlot[, 2], horiz = TRUE, col = color[1],
@@ -365,7 +365,7 @@ TCGAvisualize_EAbarplot <- function(tf, GOMFTab, GOBPTab, GOCCTab, PathTab, nBar
         }
     }
     if(!missing(GOCCTab)){
-        if(!is.null(GOCCTab) & !is.na(GOCCTab)){
+        if(!is.null(GOCCTab) & !all(is.na(GOCCTab))){
             # Plotting GOCCTab
             toPlot <- splitFun(tf, GOCCTab, nBar)
             xAxis <- barplot(toPlot[, 2], horiz = TRUE, col = color[2],
@@ -378,7 +378,7 @@ TCGAvisualize_EAbarplot <- function(tf, GOMFTab, GOBPTab, GOCCTab, PathTab, nBar
         }
     }
     if(!missing(GOMFTab)){
-        if(!is.null(GOMFTab) & !is.na(GOMFTab)){
+        if(!is.null(GOMFTab) & !all(is.na(GOMFTab))){
             # Plotting GOMFTab
             toPlot <- splitFun(tf, GOMFTab, nBar)
             xAxis <- barplot(toPlot[, 2], horiz = TRUE, col = color[3],
@@ -391,7 +391,7 @@ TCGAvisualize_EAbarplot <- function(tf, GOMFTab, GOBPTab, GOCCTab, PathTab, nBar
         }
     }
     if(!missing(PathTab)){
-        if(!is.null(PathTab) & !is.na(PathTab)){
+        if(!is.null(PathTab) & !all(is.na(PathTab))){
             # Plotting PathTab
             toPlot <- splitFun(tf, PathTab, nBar)
             xAxis <- barplot(toPlot[, 2], horiz = TRUE, col = color[4],
@@ -774,10 +774,10 @@ TCGAvisualize_Heatmap <- function(data,
     }
 
     if(is.null(extrems)) {
-        if(min(data) < 0) {
-            extrems <- c(min(data), (max(data) + min(data))/2, max(data))
+        if(min(data,na.rm = T) < 0) {
+            extrems <- c(min(data,na.rm = T), (max(data,na.rm = T) + min(data,na.rm = T))/2, max(data,na.rm = T))
         } else {
-            extrems <- c(0, max(data)/2, max(data))
+            extrems <- c(0, max(data,na.rm = T)/2, max(data,na.rm = T))
         }
     }
     if (type == "expression") color <- circlize::colorRamp2(extrems, color.levels)

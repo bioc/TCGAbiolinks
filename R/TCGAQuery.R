@@ -89,6 +89,7 @@ GDCquery <- function(project,
                      experimental.strategy,
                      sample.type){
 
+    isServeOK()
     suppressWarnings({
         # prepare output
         if(missing(sample.type)) {
@@ -274,7 +275,13 @@ GDCquery <- function(project,
     # Filter by barcode
     if(!any(is.na(barcode))) {
         message("ooo By barcode")
-        results <- results[unlist(sapply(barcode, function(x) grep(x, results$cases,ignore.case = TRUE))),]
+        idx <- unlist(sapply(barcode, function(x) grep(x, results$cases,ignore.case = TRUE)))
+        if(length(idx) == 0)  {
+            print(knitr::kable(results$cases,col.names = "Available barcodes"))
+            stop("None of the barcodes were matched. Available barcodes are above")
+        }
+
+        results <- results[idx,]
     }
     # Filter by sample.type
     if(!any(is.na(sample.type))) {
@@ -484,9 +491,10 @@ GDCquery_Maf <- function(tumor, save.csv= FALSE, directory = "GDCdata", pipeline
 
     #  Info to user
     message("============================================================================")
-    message(" For more information about MAF data please read the following GDC manual:")
+    message(" For more information about MAF data please read the following GDC manual and web pages:")
     message(" GDC manual: https://gdc-docs.nci.nih.gov/Data/PDF/Data_UG.pdf")
-    message("https://gdc-docs.nci.nih.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/")
+    message(" https://gdc-docs.nci.nih.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/")
+    message(" https://gdc.cancer.gov/about-gdc/variant-calling-gdc")
     message("============================================================================")
 
     maf  = tryCatch({
