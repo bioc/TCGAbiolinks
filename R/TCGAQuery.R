@@ -77,6 +77,7 @@
 #' @return A data frame with the results and the parameters used
 #' @importFrom  jsonlite fromJSON
 #' @importFrom knitr kable
+#' @importFrom httr timeout
 GDCquery <- function(project,
                      data.category,
                      data.type,
@@ -149,9 +150,9 @@ GDCquery <- function(project,
                            legacy = legacy)
         message("ooo Project: ", proj)
         json  <- tryCatch(
-            getURL(url,fromJSON,simplifyDataFrame = TRUE),
+            getURL(url,fromJSON,timeout(600),simplifyDataFrame = TRUE),
             error = function(e) {
-                fromJSON(content(getURL(url,GET), as = "text", encoding = "UTF-8"), simplifyDataFrame = TRUE)
+                fromJSON(content(getURL(url,GET,timeout(600)), as = "text", encoding = "UTF-8"), simplifyDataFrame = TRUE)
             }
         )
         json$data$hits$acl <- NULL
@@ -305,7 +306,12 @@ GDCquery <- function(project,
     #                  experimental_strategy = "RNA-Seq",
     #                  sample.type = c("Primary solid Tumor","Solid Tissue Normal"))
     #
-    print.header("Checcking data","subsection")
+    print.header("Checking data","subsection")
+
+    # We will check for duplicated, for example, clinical data for primary and recurrent are the same files
+    message("ooo Check for dupicated results")
+    results <- results[!duplicated(results),]
+
     message("ooo Check if there are duplicated cases")
     if(any(duplicated(results$cases))) {
         message("Warning: There are more than one file for the same case. Please verify query results. You can use the command View(query$results[[1]]) in rstudio")
