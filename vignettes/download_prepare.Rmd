@@ -2,7 +2,7 @@
 title: "TCGAbiolinks: Downloading and preparing files for analysis"
 date: "`r BiocStyle::doc_date()`"
 vignette: >
-  %\VignetteIndexEntry{"TCGAbiolinks: Downloading and preparing files for analysis"}
+  %\VignetteIndexEntry{"3. Downloading and preparing files for analysis"}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -65,13 +65,13 @@ In this example we will download gene expression data from legacy database (data
 aligned against genome of reference hg19) using GDC api method and  we will show object data and metadata.
 ```{r results = 'hide', message=FALSE, warning=FALSE, eval = FALSE}
 query <- GDCquery(project = "TCGA-GBM",
-                           data.category = "Gene expression",
-                           data.type = "Gene expression quantification",
-                           platform = "Illumina HiSeq", 
-                           file.type  = "normalized_results",
-                           experimental.strategy = "RNA-Seq",
-                           barcode = c("TCGA-14-0736-02A-01R-2005-01", "TCGA-06-0211-02A-02R-2005-01"),
-                           legacy = TRUE)
+                  data.category = "Gene expression",
+                  data.type = "Gene expression quantification",
+                  platform = "Illumina HiSeq", 
+                  file.type  = "normalized_results",
+                  experimental.strategy = "RNA-Seq",
+                  barcode = c("TCGA-14-0736-02A-01R-2005-01", "TCGA-06-0211-02A-02R-2005-01"),
+                  legacy = TRUE)
 GDCdownload(query, method = "api", chunks.per.download = 10)
 data <- GDCprepare(query)
 ```
