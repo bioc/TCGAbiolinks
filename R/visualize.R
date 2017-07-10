@@ -18,11 +18,6 @@
 #' \item dnet::visNet
 #' \item dnet::dCommSignif
 #' }
-#' @importFrom igraph subgraph.edges layout.fruchterman.reingold
-#'             spinglass.community degree E communities crossing V V<-
-#' @importFrom dnet dRDataLoader dNetInduce dNetPipeline
-#'             visNet dCommSignif
-#' @importFrom supraHex visColormap visColoralpha
 #' @importFrom grDevices dev.list
 #' @details TCGAvisualize_SurvivalCoxNET allow user to perform the complete workflow using coxph
 #' and dnet package related to survival analysis with an identification of gene-active networks from
@@ -54,11 +49,6 @@
 #' @param scoreConfidence restrict to those edges with high confidence (eg. score>=700)
 #' @param titlePlot is the title to show in the final plot.
 #' @importFrom survival coxph
-#' @importFrom igraph subgraph.edges layout.fruchterman.reingold
-#'             spinglass.community degree E communities crossing V V<-
-#' @importFrom dnet dRDataLoader dNetInduce dNetPipeline
-#'             visNet dCommSignif
-#' @importFrom supraHex visColormap visColoralpha
 #' @importFrom grDevices dev.list
 #' @export
 #' @return net IGRAPH with related Cox survival genes in community (same pval and color) and with
@@ -70,18 +60,26 @@ TCGAvisualize_SurvivalCoxNET <- function(clinical_patient,
                                          scoreConfidence = 700,
                                          titlePlot = "TCGAvisualize_SurvivalCoxNET Example"){
 
+    if (!requireNamespace("dnet", quietly = TRUE)) {
+        stop("dnet package is needed for this function to work. Please install it.",
+             call. = FALSE)
+    }
+    if (!requireNamespace("igraph", quietly = TRUE)) {
+        stop("igraph package is needed for this function to work. Please install it.",
+             call. = FALSE)
+    }
     #clinical_patient<- dataClin
     #dataGE <- dataFilt
     #Genelist <- rownames(dataSurv)
     #scoreConfidence = 700
 
     combined_score <- NULL
-    if (!(is.null(dev.list()["RStudioGD"]))){dev.off()}
+    if (!(is.null(dev.list()["RStudioGD"]))) dev.off()
 
     pdf("SurvivalCoxNETOutput.pdf", width = 15, height = 10)
 
     ## fit a Cox proportional hazards model for age, gender, tumor type
-    cfu<-clinical_patient[clinical_patient[,"bcr_patient_barcode"] %in% substr(colnames(dataGE),1,12),]
+    cfu <- clinical_patient[clinical_patient[,"bcr_patient_barcode"] %in% substr(colnames(dataGE),1,12),]
     rownames(cfu)<- cfu$bcr_patient_barcode
     cfu <- as.data.frame(subset(cfu, select=c("bcr_patient_barcode",
                                               "days_to_last_followup",
@@ -148,42 +146,42 @@ TCGAvisualize_SurvivalCoxNET <- function(clinical_patient,
     # with(org.Hs.string,{
     #    network <- subgraph.edges(org.Hs.string, eids=E(org.Hs.string)[combined_score>=scoreConfidence])})
     #network
-    network <- subgraph.edges(org.Hs.string, eids=E(org.Hs.string)[combined_score>=scoreConfidence])
+    network <- igraph::subgraph.edges(org.Hs.string, eids=igraph::E(org.Hs.string)[combined_score>=scoreConfidence])
 
 
     # extract network that only contains genes in pvals
-    ind <- match(V(network)$symbol, names(pvals))
+    ind <- match(igraph::V(network)$symbol, names(pvals))
     ## for extracted graph
-    nodes_mapped <- V(network)$name[!is.na(ind)]
+    nodes_mapped <- igraph::V(network)$name[!is.na(ind)]
     network <- dNetInduce(g=network, nodes_query=nodes_mapped, knn=0,
                           remove.loops=FALSE, largest.comp=TRUE)
-    V(network)$name <- V(network)$symbol
+    igraph::V(network)$name <- igraph::V(network)$symbol
 
     # Identification of gene-active network
     net <- dNetPipeline(g=network, pval=pvals, method="customised",
                         significance.threshold=5e-02)
     # visualisation of the gene-active network itself
     ## the layout of the network visualisation (fixed in different visuals)
-    glayout <- layout.fruchterman.reingold(net)
+    glayout <- igraph::layout.fruchterman.reingold(net)
     ## color nodes according to communities (identified via a spin-glass model and simulated annealing)
-    com <- spinglass.community(net, spins=25)
+    com <- igraph::spinglass.community(net, spins=25)
     com$csize <- sapply(1:length(com),function(x) sum(com$membership==x))
     vgroups <- com$membership
     colormap <- "yellow-darkorange"
-    palette.name <- visColormap(colormap=colormap)
+    palette.name <- supraHex::visColormap(colormap=colormap)
     mcolors <- palette.name(length(com))
     vcolors <- mcolors[vgroups]
     com$significance <- dCommSignif(net, com)
     ## node sizes according to degrees
-    vdegrees <- degree(net)
+    vdegrees <- igraph::degree(net)
     ## highlight different communities
-    mark.groups <- communities(com)
-    mark.col <- visColoralpha(mcolors, alpha=0.2)
-    mark.border <- visColoralpha(mcolors, alpha=0.2)
-    edge.color <- c("#C0C0C0", "#000000")[crossing(com,net)+1]
-    edge.color <- visColoralpha(edge.color, alpha=0.5)
+    mark.groups <- igraph::communities(com)
+    mark.col <- supraHex::visColoralpha(mcolors, alpha=0.2)
+    mark.border <- supraHex::visColoralpha(mcolors, alpha=0.2)
+    edge.color <- c("#C0C0C0", "#000000")[igraph::crossing(com,net)+1]
+    edge.color <- supraHex::visColoralpha(edge.color, alpha=0.5)
     ## visualise the subnetwrok
-    visNet(g=net, glayout=glayout, vertex.label=V(net)$geneSymbol,
+    visNet(g=net, glayout=glayout, vertex.label=igraph::V(net)$geneSymbol,
            vertex.color=vcolors, vertex.frame.color=vcolors,
            vertex.shape="sphere", mark.groups=mark.groups, mark.col=mark.col,
            mark.border=mark.border, mark.shape=1, mark.expand=10,
@@ -712,10 +710,10 @@ TCGAvisualize_Heatmap <- function(data,
     }
 
     if(is.null(extrems)) {
-        if(min(data,na.rm = T) < 0) {
-            extrems <- c(min(data,na.rm = T), (max(data,na.rm = T) + min(data,na.rm = T))/2, max(data,na.rm = T))
+        if(min(data,na.rm = TRUE) < 0) {
+            extrems <- c(min(data,na.rm = TRUE), (max(data,na.rm = TRUE) + min(data,na.rm = TRUE))/2, max(data,na.rm = TRUE))
         } else {
-            extrems <- c(0, max(data,na.rm = T)/2, max(data,na.rm = T))
+            extrems <- c(0, max(data,na.rm = TRUE)/2, max(data,na.rm = TRUE))
         }
     }
     if (type == "expression") color <- circlize::colorRamp2(extrems, color.levels)
