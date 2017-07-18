@@ -17,3 +17,9 @@ an adjacent matrix
 \description{
 TCGAanalyze_Pathview pathway based data integration and visualization.
 }
+\examples{
+\dontrun{
+  dataDEGs <- data.frame(mRNA = c("TP53","TP63","TP73"), logFC = c(1,2,3))
+  TCGAanalyze_Pathview(dataDEGs)
+}
+}
