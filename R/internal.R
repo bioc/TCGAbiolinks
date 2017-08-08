@@ -19,7 +19,7 @@
 
 }
 
-#' @title Check GDC server status
+#' @title Check GDC server status is OK
 #' @description
 #'   Check GDC server status using the api
 #'   https://gdc-api.nci.nih.gov/status
@@ -30,12 +30,25 @@
 #' @return Return true if status is ok
 isServeOK <- function(){
     tryCatch({
-        status <- fromJSON("https://gdc-api.nci.nih.gov/status",simplifyDataFrame = TRUE)$status
+        status <- getGDCInfo()$status
         if(status != "OK") stop("GDC server down, try to use this package later")
     },error = function(e) stop("GDC server down, try to use this package later"))
     return(TRUE)
 }
 
+#' @title Check GDC server status
+#' @description
+#'   Check GDC server status using the api
+#'   https://gdc-api.nci.nih.gov/status
+#' @export
+#' @importFrom jsonlite fromJSON
+#' @examples
+#' info <- getGDCInfo()
+#' @return Return true all status
+getGDCInfo <- function(){
+    status <- fromJSON("https://gdc-api.nci.nih.gov/status",simplifyDataFrame = TRUE)
+    return(status)
+}
 
 checkProjectInput <- function(project){
     projects <- getGDCprojects()
@@ -178,13 +191,19 @@ getGDCprojects <- function(){
 # Source: https://stackoverflow.com/questions/10266963/moving-files-between-folders
 move <- function(from, to) {
     if(file.exists(from)){
-        todir <- dirname(to)
-        dir.create(todir, recursive=TRUE,showWarnings = FALSE)
-        tryCatch(file.copy(from = from,  to = to), warning = function(w) print(w),error = function(e) print(e))
+        if(R.utils::isDirectory(from)) {
+            todir <- dirname(to)
+            dir.create(to, recursive=TRUE,showWarnings = FALSE)
+            tryCatch(file.copy(from = from,  to = todir, recursive = TRUE), warning = function(w) print(w),error = function(e) print(e))
+        } else {
+            todir <- dirname(to)
+            dir.create(todir, recursive=TRUE,showWarnings = FALSE)
+            tryCatch(file.copy(from = from,  to = to), warning = function(w) print(w),error = function(e) print(e))
+        }
         if(dirname(from) != ".") {
             unlink(dirname(from),recursive=TRUE,force = TRUE)
         } else {
-            unlink(from)
+            unlink(from, recursive =  R.utils::isDirectory(from))
         }
     } else {
         stop(paste0("I could not find the file: ", from))
@@ -515,8 +534,21 @@ GeneSplitRegulon <- function(Genelist,Sep){
     return(RegSplitted)
 }
 
+#' @title Download GISTIC data from firehose
+#' @description
+#' Download GISTIC data from firehose from
+#' http://gdac.broadinstitute.org/runs/analyses__latest/data/
+#' @param disease TCGA disease. Option available in
+#' http://gdac.broadinstitute.org/runs/analyses__latest/data/
+#' @param type Results type: thresholded or data
+#' @export
 #' @import selectr
-getGistic <- function(disease) {
+getGistic <- function(disease, type = "thresholded") {
+    if(type == "thresholded") {
+        file.type <- "all_thresholded.by_genes.txt"
+    } else {
+        file.type <- "all_data_by_genes.txt"
+    }
     base <- paste0("http://gdac.broadinstitute.org/runs/analyses__latest/data/", disease)
     x <- tryCatch({
         read_html(base)  %>% html_nodes("a") %>% html_attr("href")
@@ -538,16 +570,16 @@ getGistic <- function(disease) {
     # Check if downlaod was not corrupted
     md5 <- readr::read_table(file.path(base,x[2]), col_names = FALSE, progress = FALSE)$X1
     if(tools::md5sum(x[1]) != md5) stop("Error while downloading CNV data")
-    file <- paste0(gsub(".tar.gz","",x[1]),"/all_thresholded.by_genes.txt")
+    file <- paste0(gsub(".tar.gz","",x[1]),"/",file.type)
     if(!file.exists(file)) {
         compressed.files <- untar(x[1], list = TRUE)
-        compressed.files <- compressed.files[grepl("all_thresholded.by_genes.txt", compressed.files)]
+        compressed.files <- compressed.files[grepl(file.type, compressed.files)]
         untar(x[1],files = compressed.files )
     }
     ret <- tryCatch({
         fread(file, data.table = FALSE, colClasses = "character")
     }, error = function(e) {
-        file <- dir(pattern = "all_thresholded.by_genes.txt", recursive = TRUE, full.names = TRUE)
+        file <- dir(pattern = file.type, recursive = TRUE, full.names = TRUE)
         file <- file[grep(disease,file,ignore.case = TRUE)]
         fread(file, data.table = FALSE, colClasses = "character")
     })
