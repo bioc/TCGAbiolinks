@@ -48,6 +48,7 @@
 #' }
 #' @return A summarizedExperiment or a data.frame
 #' @importFrom  S4Vectors DataFrame
+#' @importFrom SummarizedExperiment metadata<-
 #' @importFrom data.table setcolorder setnames
 #' @importFrom GenomicRanges GRanges
 #' @importFrom IRanges IRanges
@@ -101,6 +102,7 @@ GDCprepare <- function(query,
             suppressWarnings(data <- readSimpleNucleotideVariationMaf(files))
     }  else if(grepl("Clinical|Biospecimen", query$data.category, ignore.case = TRUE)){
         data <- readClinical(files, query$data.type, query$results[[1]]$cases)
+        summarizedExperiment <- FALSE
     } else if (grepl("Gene expression",query$data.category,ignore.case = TRUE)) {
         if(query$data.type == "Gene expression quantification")
             data <- readGeneExpressionQuantification(files = files,
@@ -121,6 +123,11 @@ GDCprepare <- function(query,
             data <- readIsoformExpressionQuantification(files = files, cases = query$results[[1]]$cases)
 
     }
+    # Add data release to object
+    if(summarizedExperiment & !is.data.frame(data)){
+        metadata(data) <- list("data_release" = getGDCInfo()$data_release)
+    }
+
 
     if((!is.null(add.gistic2.mut)) & summarizedExperiment) {
         message("=> Adding GISTIC2 and mutation information....")
@@ -575,6 +582,8 @@ colDataPrepareTCGA <- function(barcode){
     return(DataFrame(ret))
 }
 
+#' @title Create samples information matrix for GDC samples
+#' Create samples information matrix for GDC samples add subtype information
 #' @examples
 #' \dontrun{
 #'   query.met <- GDCquery(project = c("TCGA-GBM","TCGA-LGG"),
@@ -652,13 +661,13 @@ colDataPrepare <- function(barcode){
                 }
                 ret.aux <- ret[ret$sample.aux %in% subtype$sample.aux,]
                 ret.aux <- merge(ret.aux,subtype, by = "sample.aux", all.x = TRUE)
-                out <- rbind.fill(out,ret.aux)
+                out <- rbind.fill(as.data.frame(out),as.data.frame(ret.aux))
             }
         }
     }
     # We need to put together the samples with subtypes with samples without subytpes
     ret.aux <- ret[!ret$sample %in% out$sample,]
-    ret <- rbind.fill(out,ret.aux)
+    ret <- rbind.fill(as.data.frame(out),as.data.frame(ret.aux))
     ret$sample.aux <- NULL
     # Add purity information from http://www.nature.com/articles/ncomms9971
     # purity  <- getPurityinfo()

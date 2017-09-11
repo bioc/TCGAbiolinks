@@ -10,6 +10,7 @@ warnings_are_errors: false
 os:
   - linux
   - osx
+osx_image: xcode9
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -q ; fi
@@ -51,6 +52,9 @@ bioc_packages:
   - clusterProfiler
   - BiocCheck
   - fgsea
+  - GO.db
+  - DO.db
+  - org.Hs.eg.db
 
 r_github_packages:
   - eddelbuettel/digest
@@ -60,6 +64,12 @@ r_github_packages:
   - edwindj/whisker
   - jimhester/withr
   - jimhester/covr
+  - hfang-bristol/dnet
+
+after_script:
+  - ls -lah
+  - FILE=$(ls -1t *.tar.gz | head -n 1)
+  - Rscript -e "library(BiocCheck); BiocCheck(\"${FILE}\")
 
 
 after_script:
@@ -68,7 +78,7 @@ after_script:
   - Rscript -e "library(BiocCheck); BiocCheck(\"${FILE}\")
 
 after_success:
-  -  Rscript -e 'library(covr);codecov()'
+  -  travis_wait Rscript -e 'library(covr);codecov()'
 
 r_build_args: --no-build-vignettes --no-manual --no-resave-data
 r_check_args: --no-build-vignettes --no-manual
