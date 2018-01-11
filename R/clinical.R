@@ -408,6 +408,16 @@ parseXML <- function(files, xpath, clinical.info ){
     return(clin)
 }
 
+#' @title Retrieve table with TCGA molecular subtypes
+#' @description
+#'   PanCancerAtlas_subtypes is a curated table with molecular subtypes for 24 TCGA cancer types
+#' @export
+#' @examples
+#' molecular.subtypes <- PanCancerAtlas_subtypes()
+#' @return a data.frame with barcode and molecular subtypes for 24 cancer types
+PanCancerAtlas_subtypes <- function(){
+    return(pancan2018)
+}
 
 #' @title Retrieve molecular subtypes for a given tumor
 #' @description
@@ -422,38 +432,41 @@ parseXML <- function(files, xpath, clinical.info ){
 #' dataSubt <- TCGAquery_subtype(tumor = "lgg")
 #' @return a data.frame with barcode and molecular subtypes
 TCGAquery_subtype <- function(tumor){
-    if (grepl("acc|lgg|gbm|luad|stad|brca|coad|esca|read|skcm|hnsc|kich|lusc|ucec|pancan|thca|prad|pcpg|kirp|kirc|all",
+    if (grepl("acc|blca|ucs|chol|sarc|cesc|lgg|gbm|luad|stad|brca|coad|esca|read|skcm|hnsc|kich|lusc|ucec|pancan|thca|prad|pcpg|kirp|kirc|all",
               tumor,ignore.case = TRUE)) {
 
-        doi <- c("acc"="doi:10.1016/j.ccell.2016.04.002",
-                 "aml"="doi:10.1056/NEJMoa1301689",
-                 "blca"="doi:10.1038/nature12965",
-                 "brca"="doi:10.1038/nature11412",
-                 "coad"="doi:10.1038/nature11252",
-                 "esca"="doi:10.1038/nature20805",
-                 "gbm"="doi:10.1016/j.cell.2015.12.028",
-                 "lgg"="doi:10.1016/j.cell.2015.12.028",
-                 "hnsc"="doi:10.1038/nature14129",
-                 "kich"="doi:10.1016/j.ccr.2014.07.014",
-                 "kirc"="doi:10.1038/nature12222",
-                 "kirp"="doi:10.1056/NEJMoa1505917",
-                 "lihc"="",
-                 "luad"="doi:10.1038/nature13385",
-                 "lusc"="doi:10.1038/nature11404",
-                 "ovca"= "doi:10.1038/nature10166",
+        doi <- c("acc"  = "doi:10.1016/j.ccell.2016.04.002",
+                 "aml"  = "doi:10.1056/NEJMoa1301689",
+                 "blca" = "10.1016/j.cell.2017.09.007",
+                 "brca" = "doi:10.1038/nature11412",
+                 "cesc" = "doi:10.1038/nature21386",
+                 "chol" = "doi:10.1016/j.celrep.2017.02.033",
+                 "coad" = "doi:10.1038/nature11252",
+                 "esca" = "doi:10.1038/nature20805",
+                 "gbm"  = "doi:10.1016/j.cell.2015.12.028",
+                 "lgg"  = "doi:10.1016/j.cell.2015.12.028",
+                 "hnsc" = "doi:10.1038/nature14129",
+                 "kich" = "doi:10.1016/j.ccr.2014.07.014",
+                 "kirc" = "doi:10.1038/nature12222",
+                 "kirp" = "doi:10.1056/NEJMoa1505917",
+                 "lihc" = "",
+                 "luad" = "doi:10.1038/nature13385",
+                 "lusc" = "doi:10.1038/nature11404",
+                 "ovca" = "doi:10.1038/nature10166",
                  "pancan"="doi:10.1016/j.cell.2014.06.049",
-                 "pcpg"="http://dx.doi.org/10.1016/j.ccell.2017.01.001",
-                 "prad"="doi:10.1016/j.cell.2015.10.025",
-                 "read"="doi:10.1038/nature11252",
-                 "skcm"="doi:10.1016/j.cell.2015.05.044",
-                 "stad"="doi:10.1038/nature13480",
-                 "thca"="doi:10.1016/j.cell.2014.09.050",
-                 "ucec"="doi:10.1038/nature12113",
-                 "ucs"="")
+                 "pcpg" = "http://dx.doi.org/10.1016/j.ccell.2017.01.001",
+                 "prad" = "doi:10.1016/j.cell.2015.10.025",
+                 "read" = "doi:10.1038/nature11252",
+                 "sarc" = "10.1016/j.cell.2017.10.014",
+                 "skcm" = "doi:10.1016/j.cell.2015.05.044",
+                 "stad" = "doi:10.1038/nature13480",
+                 "thca" = "doi:10.1016/j.cell.2014.09.050",
+                 "ucec" = "doi:10.1038/nature12113",
+                 "ucs"  = "10.1016/j.ccell.2017.02.010")
 
         if(tolower(tumor) != "all") message(paste0("Subtype information from:", doi[tolower(tumor)]))
         if(tolower(tumor) == "all") {
-            all.tumor <- c("acc","lgg", "esca","gbm", "luad", "stad", "brca", "coad",
+            all.tumor <- c("acc","blca","lgg", "esca","gbm", "luad", "stad", "brca", "coad",
                            "skcm", "hnsc", 'kich', "lusc", "ucec", "pancan", "thca",
                            "prad","kirp","kirc")
             all <- NULL
@@ -491,7 +504,7 @@ TCGAquery_subtype <- function(tumor){
         }
         return(get(paste0(tolower(tumor),".subtype")))
     } else {
-        stop("For the moment we have only subtype for: acc, brca, coad, esca, gbm, hnsc, kich, kirp, kirc, lgg, luad, lusc, prad, pancan, read, skcm, stad, thca and ucec")
+        stop("For the moment we have only subtype for: acc, blca, brca, coad, esca, gbm, hnsc, kich, kirp, kirc, lgg, luad, lusc, prad, pancan, read, skcm, stad, thca and ucec")
     }
 }
 

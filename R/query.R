@@ -310,7 +310,7 @@ GDCquery <- function(project,
     # Filter by barcode
     if(!any(is.na(barcode))) {
         message("ooo By barcode")
-        idx <- unlist(sapply(barcode, function(x) grep(x, results$cases,ignore.case = TRUE)))
+        idx <- unique(unlist(sapply(barcode, function(x) grep(x, results$cases,ignore.case = TRUE))))
         if(length(idx) == 0)  {
             print(knitr::kable(results$cases,col.names = "Available barcodes"))
             stop("None of the barcodes were matched. Available barcodes are above")
@@ -599,21 +599,16 @@ TCGAquery_recount2<-function(project, tissue=c()){
              "uterus", "vagina")
   tissue<-paste(unlist(strsplit(tissue, " ")), collapse="_")
   Res<-list()
-
+  
   if(tolower(project)=="gtex"){
     for(t_i in tissue){
       if(tissue%in%tissues){
         con<-"http://duffel.rail.bio/recount/SRP012682/rse_gene_"
         con<-paste0(con,tissue,".Rdata")
-        con<-url(con)
+        
         message(paste0("downloading Range Summarized Experiment for: ", tissue))
-        load(con)
+        load(url(con))
         Res[[paste0(project,"_", t_i)]]<-rse_gene
-        ###Convert to matrix[genes, samples]#####
-        #ES<- exprs(as(rse_gene, "ExpressionSet"))
-
-        ###Remove version from ENSG ids (what's after the ".")####
-        #rownames(ES)<-gsub("\\..*","",rownames(ES))
       }
       else stop(paste0(tissue, " is not an available tissue on Recount2"))
     }
@@ -625,7 +620,7 @@ TCGAquery_recount2<-function(project, tissue=c()){
         con<-"http://duffel.rail.bio/recount/TCGA/rse_gene_"
         con<-paste0(con,tissue,".Rdata")
         message(paste0("downloading Range Summarized Experiment for: ", tissue))
-        load(con)
+        load(url(con))
         Res[[paste0(project,"_", t_i)]]<-rse_gene
 
       }
@@ -636,4 +631,3 @@ TCGAquery_recount2<-function(project, tissue=c()){
   else stop(paste0(project, " is not a valid project"))
 
 }
-
