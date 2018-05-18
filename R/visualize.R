@@ -317,9 +317,17 @@ TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes,group1, grou
 #'          nRGTab = Genelist,
 #'          nBar = 10)
 #'}
-TCGAvisualize_EAbarplot <- function(tf, GOMFTab, GOBPTab, GOCCTab, PathTab, nBar, nRGTab,
+TCGAvisualize_EAbarplot <- function(tf,
+                                    GOMFTab,
+                                    GOBPTab,
+                                    GOCCTab,
+                                    PathTab,
+                                    nBar,
+                                    nRGTab,
                                     filename = "TCGAvisualize_EAbarplot_Output.pdf",
-                                    text.size = 1.0, mfrow = c(2, 2), xlim = NULL,
+                                    text.size = 1.0,
+                                    mfrow = c(2, 2),
+                                    xlim = NULL,
                                     color = c("orange", "cyan","green","yellow") ){
 
     if(!is.null(filename)) pdf(filename, width = 30, height = 15)

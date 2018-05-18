@@ -1259,16 +1259,27 @@ TCGAanalyze_EAcomplete <- function(TFname, RegulonList){
     print(paste("I need about ", "1 minute to finish complete ",
                 "Enrichment analysis GO[BP,MF,CC] and Pathways... "))
 
-    ResBP <- TCGAanalyze_EA(TFname,RegulonList,DAVID_BP_matrix,
-                            EAGenes,GOtype = "DavidBP")
+    ResBP <- TCGAanalyze_EA(GeneName = TFname,
+                            RegulonList = RegulonList,
+                            TableEnrichment = DAVID_BP_matrix,
+                            EAGenes = EAGenes,
+                            GOtype = "DavidBP")
     print("GO Enrichment Analysis BP completed....done")
-    ResMF <- TCGAanalyze_EA(TFname,RegulonList,DAVID_MF_matrix,
-                            EAGenes,GOtype = "DavidMF")
+    ResMF <- TCGAanalyze_EA(GeneName = TFname,
+                            RegulonList = RegulonList,
+                            TableEnrichment = DAVID_MF_matrix,
+                            EAGenes,
+                            GOtype = "DavidMF")
     print("GO Enrichment Analysis MF completed....done")
-    ResCC <- TCGAanalyze_EA(TFname,RegulonList,DAVID_CC_matrix,
-                            EAGenes,GOtype = "DavidCC")
+    ResCC <- TCGAanalyze_EA(GeneName = TFname,
+                            RegulonList = RegulonList,
+                            TableEnrichment = DAVID_CC_matrix,
+                            EAGenes,
+                            GOtype = "DavidCC")
     print("GO Enrichment Analysis CC completed....done")
-    ResPat <- TCGAanalyze_EA(TFname,RegulonList,listEA_pathways,
+    ResPat <- TCGAanalyze_EA(GeneName = TFname,
+                             RegulonList = RegulonList,
+                             TableEnrichment = listEA_pathways,
                              EAGenes,GOtype = "Pathway")
     print("Pathway Enrichment Analysis completed....done")
 
@@ -1314,8 +1325,13 @@ TCGAanalyze_EAcomplete <- function(TFname, RegulonList){
 #'                            RegulonList,DAVID_BP_matrix,
 #'                            EAGenes,GOtype = "DavidBP")
 #'}
-TCGAanalyze_EA <- function(GeneName,RegulonList,TableEnrichment,
-                           EAGenes,GOtype,FDRThresh=0.01) {
+TCGAanalyze_EA <- function(GeneName,
+                           RegulonList,
+                           TableEnrichment,
+                           EAGenes,
+                           GOtype,
+                           FDRThresh=0.01) {
+
     topPathways <- nrow(TableEnrichment)
     topPathways_tab <- matrix(0,1,topPathways)
     topPathways_tab <- as.matrix(topPathways_tab)
