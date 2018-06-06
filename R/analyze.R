@@ -1279,23 +1279,6 @@ TCGAanalyze_EAcomplete <- function(TFname, RegulonList){
 
     ans <- list(ResBP = ResBP, ResMF = ResMF, ResCC = ResCC, ResPat = ResPat)
     return(ans)
-=======
-        ResBP <- TCGAanalyze_EA(TFname,RegulonList,DAVID_BP_matrix,
-                EAGenes,GOtype = "DavidBP")
-        print("GO Enrichment Analysis BP completed....done")
-        ResMF <- TCGAanalyze_EA(TFname,RegulonList,DAVID_MF_matrix,
-                EAGenes,GOtype = "DavidMF")
-        print("GO Enrichment Analysis MF completed....done")
-        ResCC <- TCGAanalyze_EA(TFname,RegulonList,DAVID_CC_matrix,
-                EAGenes,GOtype = "DavidCC")
-        print("GO Enrichment Analysis CC completed....done")
-        ResPat <- TCGAanalyze_EA(TFname,RegulonList,listEA_pathways,
-                EAGenes,GOtype = "Pathway")
-        print("Pathway Enrichment Analysis completed....done")
-
-        ans <- list(ResBP = ResBP, ResMF = ResMF, ResCC = ResCC, ResPat = ResPat)
-        return(ans)
->>>>>>> master
 }
 
 #' @title Enrichment analysis of a gene-set with GO [BP,MF,CC]  and pathways.
@@ -1336,18 +1319,12 @@ TCGAanalyze_EAcomplete <- function(TFname, RegulonList){
 #'                            RegulonList,DAVID_BP_matrix,
 #'                            EAGenes,GOtype = "DavidBP")
 #'}
-<<<<<<< HEAD
 TCGAanalyze_EA <- function(GeneName,
                            RegulonList,
                            TableEnrichment,
                            EAGenes,
                            GOtype,
                            FDRThresh=0.01) {
-
-=======
-TCGAanalyze_EA <- function(GeneName,RegulonList,TableEnrichment,
-        EAGenes,GOtype,FDRThresh=0.01) {
->>>>>>> master
     topPathways <- nrow(TableEnrichment)
         topPathways_tab <- matrix(0,1,topPathways)
         topPathways_tab <- as.matrix(topPathways_tab)
