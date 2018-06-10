@@ -1253,8 +1253,6 @@ TCGAanalyze_EAcomplete <- function(TFname, RegulonList){
     print(paste("I need about ", "1 minute to finish complete ",
                 "Enrichment analysis GO[BP,MF,CC] and Pathways... "))
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     ResBP <- TCGAanalyze_EA(GeneName = TFname,
                             RegulonList = RegulonList,
                             TableEnrichment = DAVID_BP_matrix,
