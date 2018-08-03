@@ -161,7 +161,10 @@ GDCquery_clinic <- function(project, type = "clinical", save.csv = FALSE){
             }
             if("demographic" %in% colnames(results)){
                 results$demographic$submitter_id <- gsub("_demographic","", results$demographic$submitter_id)
-                df <- merge(df,as.data.table(results$demographic)[,-c("updated_datetime","state","created_datetime")], by="submitter_id", all = TRUE)
+                demographic <- results$demographic[!is.na(results$demographic$submitter_id),]
+                df <- merge(df,
+                            as.data.table(demographic)[,-c("updated_datetime","state","created_datetime")],
+                            by="submitter_id", all = TRUE)
             }
             if("treatments" %in% colnames(df)){
                 treatments <- rbindlist(df$treatments,fill = TRUE)
@@ -458,6 +461,7 @@ TCGAquery_subtype <- function(tumor){
                    "KIRC",
                    "KIRP",
                    "LGG",
+                   "LIHC",
                    "LUAD",
                    "LUSC",
                    "PAAD",
@@ -484,6 +488,7 @@ TCGAquery_subtype <- function(tumor){
                  "esca" = "doi:10.1038/nature20805",
                  "gbm"  = "doi:10.1016/j.cell.2015.12.028",
                  "lgg"  = "doi:10.1016/j.cell.2015.12.028",
+                 "lihc"  = "https://doi.org/10.1016/j.cell.2017.05.046",
                  "hnsc" = "doi:10.1038/nature14129",
                  "kich" = "doi:10.1016/j.ccr.2014.07.014",
                  "kirc" = "doi:10.1038/nature12222",

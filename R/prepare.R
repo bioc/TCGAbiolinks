@@ -30,6 +30,7 @@
 #' GDCdownload(query, method = "api", directory = "maf")
 #' maf <- GDCprepare(query, directory = "maf")
 #'
+#' \dontrun{
 #' query <- GDCquery(project = "TCGA-ACC",
 #'                    data.category =  "Copy number variation",
 #'                    legacy = TRUE,
@@ -38,8 +39,6 @@
 #' # data will be saved in  GDCdata/TCGA-ACC/legacy/Copy_number_variation/Copy_number_segmentation
 #' GDCdownload(query, method = "api")
 #' acc.cnv <- GDCprepare(query)
-#'
-#' \dontrun{
 #'  query <- GDCquery(project = "TCGA-GBM",
 #'                    legacy = TRUE,
 #'                    data.category = "Gene expression",
@@ -81,7 +80,7 @@ GDCprepare <- function(query,
         dup <- query$results[[1]][query$results[[1]]$cases %in% dup,c("tags","cases","experimental_strategy")]
         dup <- dup[order(dup$cases),]
         print(knitr::kable(dup))
-        stop("There are samples duplicated. We will not be able to preapre it")
+        stop("There are samples duplicated. We will not be able to prepare it")
     }
     if(!save & remove.files.prepared) {
         stop("To remove the files, please set save to TRUE. Otherwise, the data will be lost")
@@ -97,7 +96,7 @@ GDCprepare <- function(query,
     files <- file.path(directory, files)
 
     if(!all(file.exists(files))) stop(paste0("I couldn't find all the files from the query. ",
-                                             "Please check if the directory parameter right or GDCdownload downloaded the samples."))
+                                             "Please check if the directory parameter is right or `GDCdownload` downloaded the samples."))
 
     if(grepl("Transcriptome Profiling", query$data.category, ignore.case = TRUE)){
         data <- readTranscriptomeProfiling(files = files,
@@ -164,7 +163,7 @@ GDCprepare <- function(query,
     if("samples" %in% colnames(data)){
         if(any(duplicated(data$sample))) {
             message("Replicates found.")
-            if(any(data$is_ffpe)) message("FFPE should be removed. You can do data with the following command:\ndata <- data[,!data$is_ffpe]")
+            if(any(data$is_ffpe)) message("FFPE should be removed. You can modify the data with the following command:\ndata <- data[,!data$is_ffpe]")
             print(as.data.frame(colData(data)[data$sample %in% data$sample[duplicated(data$sample)],c("is_ffpe"),drop=F]))
         }
     }
@@ -290,7 +289,7 @@ readGeneExpressionQuantification <- function(files,
 
     skip <- unique((ifelse(experimental.strategy == "Gene expression array",1,0)))
 
-    if(length(skip) > 1) stop("It is not possible to handle this different platforms together")
+    if(length(skip) > 1) stop("It is not possible to handle those different platforms together")
 
     for (i in seq_along(files)) {
         suppressWarnings({
