@@ -152,7 +152,10 @@ GDCquery <- function(project,
                            data.type = data.type,
                            legacy = legacy,
                            workflow.type = workflow.type,
-                           platform = platform)
+                           platform = platform,
+                           file.type = file.type,
+                           files.access = access,
+                           sample.type = sample.type)
         message("ooo Project: ", proj)
         json  <- tryCatch(
             getURL(url,fromJSON,timeout(600),simplifyDataFrame = TRUE),
@@ -168,7 +171,10 @@ GDCquery <- function(project,
                                data.type = data.type,
                                legacy = legacy,
                                workflow.type = NA,
-                               platform = NA)
+                               platform = NA,
+                               file.type = file.type,
+                               files.access = access,
+                               sample.type = sample.type)
             json  <- tryCatch(
                 getURL(url,fromJSON,timeout(600),simplifyDataFrame = TRUE),
                 error = function(e) {
@@ -369,7 +375,7 @@ GDCquery <- function(project,
     return(ret)
 }
 
-getGDCquery <- function(project, data.category, data.type, legacy, workflow.type,platform){
+getGDCquery <- function(project, data.category, data.type, legacy, workflow.type,platform,file.type,files.access,sample.type){
     # Get manifest using the API
     baseURL <- ifelse(legacy,"https://api.gdc.cancer.gov/legacy/files/?","https://api.gdc.cancer.gov/files/?")
     options.pretty <- "pretty=true"
@@ -378,7 +384,7 @@ getGDCquery <- function(project, data.category, data.type, legacy, workflow.type
     } else if(data.category %in% c("Clinical","Biospecimen")) {
         options.expand <- "expand=cases,cases.project,center,analysis"
     } else {
-        options.expand <- "expand=cases.samples.portions.analytes.aliquots,cases.project,center,analysis"
+        options.expand <- "expand=cases.samples.portions.analytes.aliquots,cases.project,center,analysis,cases.samples"
     }
     option.size <- paste0("size=",getNbFiles(project,data.category,legacy))
     option.format <- paste0("format=JSON")
@@ -393,8 +399,20 @@ getGDCquery <- function(project, data.category, data.type, legacy, workflow.type
     if(!is.na(data.type))  options.filter <- paste0(options.filter,addFilter("files.data_type", data.type))
     if(!is.na(workflow.type))  options.filter <- paste0(options.filter,addFilter("files.analysis.workflow_type", workflow.type))
     if(!any(is.na(platform))) options.filter <- paste0(options.filter,addFilter("files.platform", platform))
+    if(!any(is.na(file.type))) {
+        if(file.type == "results" & legacy) options.filter <- paste0(options.filter,addFilter("files.tags", "unnormalized"))
+        if(file.type == "normalized_results" & legacy) options.filter <- paste0(options.filter,addFilter("files.tags", "normalized"))
+        if(file.type == "nocnv_hg19.seg" & legacy) options.filter <- paste0(options.filter,addFilter("files.tags", "nocnv"))
+    }
+    if(!any(is.na(files.access))) {
+        options.filter <- paste0(options.filter,addFilter("files.access", files.access))
+    }
+    if(!any(is.na(sample.type))) {
+        if("Primary solid Tumor" %in% sample.type) sample.type[sample.type == "Primary solid Tumor"] <- "Primary Tumor"
+        options.filter <- paste0(options.filter,addFilter("cases.samples.sample_type", sample.type))
+    }
 
-    # Close json request
+        # Close json request
     options.filter <- paste0(options.filter, URLencode(']}'))
     url <- paste0(baseURL,paste(options.pretty,
                                 options.expand,
