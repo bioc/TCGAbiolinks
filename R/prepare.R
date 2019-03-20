@@ -69,7 +69,9 @@ GDCprepare <- function(query,
        query$data.type !=  "Protein expression quantification" &
        query$data.type != "Raw intensities") {
         dup <- query$results[[1]]$cases[duplicated(query$results[[1]]$cases)]
-        dup <- query$results[[1]][query$results[[1]]$cases %in% dup,c("tags","cases","experimental_strategy")]
+        cols <- c("tags","cases","experimental_strategy","analysis_workflow_type")
+        cols <- cols[cols %in% colnames(query$results[[1]])]
+        dup <- query$results[[1]][query$results[[1]]$cases %in% dup,cols]
         dup <- dup[order(dup$cases),]
         print(knitr::kable(dup))
         stop("There are samples duplicated. We will not be able to prepare it")
@@ -1050,40 +1052,47 @@ readTranscriptomeProfiling <- function(files, data.type, workflow.type, cases,su
 
 readGISTIC <- function(files, cases){
     message("Reading GISTIC file")
-    data <- read_tsv(file = files, col_names = TRUE, progress = TRUE)
+    gistic.df <- NULL
+    gistic.list <- plyr::alply(files,1,.fun = function(file) {
+        message("Reading file: ", file)
+        data <- read_tsv(file = file, col_names = TRUE, progress = TRUE,col_types = readr::cols())
 
-    patient <- substr(unlist(str_split(cases,",")),1,12)
-    info <- NULL
-    info <- tryCatch({
-        step <- 20 # more than 50 gives a bug =/
-        for(i in 0:(ceiling(length(patient)/step) - 1)){
-            start <- 1 + step * i
-            end <- ifelse(((i + 1) * step) > length(patient), length(patient),((i + 1) * step))
-            if(is.null(info)) {
-                info <- getAliquot_ids(patient[start:end])
-            } else {
-                info <- rbind(info, getAliquot_ids(patient[start:end]))
+        patient <- substr(unlist(str_split(cases,",")),1,12)
+        info <- NULL
+        info <- tryCatch({
+            step <- 20 # more than 50 gives a bug =/
+            for(i in 0:(ceiling(length(patient)/step) - 1)){
+                start <- 1 + step * i
+                end <- ifelse(((i + 1) * step) > length(patient), length(patient),((i + 1) * step))
+                if(is.null(info)) {
+                    info <- getAliquot_ids(patient[start:end])
+                } else {
+                    info <- rbind(info, getAliquot_ids(patient[start:end]))
+                }
             }
-        }
-        info
-    }, error = function(e) {
-        step <- 2
-        for(i in 0:(ceiling(length(patient)/step) - 1)){
-            start <- 1 + step * i
-            end <- ifelse(((i + 1) * step) > length(patient), length(patient),((i + 1) * step))
-            if(is.null(info)) {
-                info <- getAliquot_ids(patient[start:end])
-            } else {
-                info <- rbind(info, getAliquot_ids(patient[start:end]))
+            info
+        }, error = function(e) {
+            step <- 2
+            for(i in 0:(ceiling(length(patient)/step) - 1)){
+                start <- 1 + step * i
+                end <- ifelse(((i + 1) * step) > length(patient), length(patient),((i + 1) * step))
+                if(is.null(info)) {
+                    info <- getAliquot_ids(patient[start:end])
+                } else {
+                    info <- rbind(info, getAliquot_ids(patient[start:end]))
+                }
             }
-        }
-        info
+            info
+        })
+
+        barcode <- as.character(info$barcode)[match(colnames(data),as.character(info$aliquot_id))]
+        idx <- which(!is.na(barcode))
+        colnames(data)[idx] <- barcode[idx]
+        return(data)
     })
+    gistic.df <- gistic.list %>% purrr::reduce(dplyr::full_join, by = c("Gene Symbol","Gene ID","Cytoband"))
 
-    barcode <- info$barcode[match(colnames(data),info$aliquot_id)]
-    idx <- which(!is.na(barcode))
-    colnames(data)[idx] <- barcode[idx]
-    return(data)
+    return(gistic.df)
 }
 
 # Reads Copy Number Variation files to a data frame, basically it will rbind it
@@ -1190,11 +1199,7 @@ getAliquot_ids <- function(barcode){
     )
 
     results <- json$data$hits
-    submitter_id <- results$submitter_id
-    l <- results$aliquot_ids
-    names(l) <- submitter_id
-    df <- do.call(rbind,lapply(l,data.frame))
-    df$barcode <- gsub("\\.[0-9]*","",rownames(df))
+    df <- data.frame(unlist(results$aliquot_ids),unlist(results$submitter_aliquot_ids))
     colnames(df) <- c("aliquot_id","barcode")
     return(df)
 }
