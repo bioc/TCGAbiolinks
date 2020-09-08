@@ -552,26 +552,34 @@ TCGAvisualize_meanMethylation <- function(
 #' @importFrom plyr adply
 #' @importFrom stats wilcox.test
 #' @keywords internal
-dmc.non.parametric.se <- function(data,
-                                  groupCol = NULL,
-                                  group1 = NULL,
-                                  group2 = NULL,
-                                  paired = FALSE,
-                                  adj.method = "BH",
-                                  alternative = "two.sided",
-                                  cores = 1) {
+dmc.non.parametric.se <- function(
+    data,
+    groupCol = NULL,
+    group1 = NULL,
+    group2 = NULL,
+    paired = FALSE,
+    adj.method = "BH",
+    alternative = "two.sided",
+    cores = 1
+) {
+
     if (is.null(groupCol)) {
         message("Please, set the groupCol parameter")
         return(NULL)
     }
-    if (length(unique(colData(data)[, groupCol])) != 2 &&
-        is.null(group1) && is.null(group2)) {
-        message("Please, set the group1 and group2 parameters")
-        return(NULL)
-    } else if (length(unique(colData(data)[, groupCol])) == 2) {
-        group1 <- unique(colData(data)[, groupCol])[1]
-        group2 <- unique(colData(data)[, groupCol])[2]
+
+    # Can we define group1 and group2 automatically
+    if(is.null(group1) & is.null(group2)){
+        if(length(unique(colData(data)[, groupCol])) == 2){
+            message("Defining groups")
+            group1 <- unique(colData(data)[, groupCol])[1]
+            group2 <- unique(colData(data)[, groupCol])[2]
+        } else {
+            message("Please, set the group1 and group2 parameters")
+            return(NULL)
+        }
     }
+
     message("Calculating the p-values of each probe...")
     # Apply Wilcoxon test in order to calculate the p-values
     idx1 <- which(colData(data)[, groupCol] == group1)
@@ -616,8 +624,10 @@ dmc.non.parametric.se <- function(data,
 #' @import stats
 #' @examples
 #'  nrows <- 200; ncols <- 20
-#'  counts <- matrix(runif(nrows * ncols, 1, 1e4), nrows,
-#'            dimnames = list(paste0("cg",1:200),paste0("S",1:20)))
+#'  counts <- matrix(
+#'    runif(nrows * ncols, 1, 1e4), nrows,
+#'    dimnames = list(paste0("cg",1:200),paste0("S",1:20))
+#'  )
 #'  TCGAbiolinks:::dmc.non.parametric(counts,1:10,11:20)
 dmc.non.parametric <-  function(
     matrix,
@@ -645,8 +655,8 @@ dmc.non.parametric <-  function(
 
     p.value <- p.value[, 2]
     p.value.adj <- p.adjust(p.value, method = adj.method)
-    mean.g1 <- rowMeans(matrix[, idx1], na.rm = TRUE)
-    mean.g2 <- rowMeans(matrix[, idx2], na.rm = TRUE)
+    mean.g1 <- rowMeans(matrix[, idx1, drop = FALSE], na.rm = TRUE)
+    mean.g2 <- rowMeans(matrix[, idx2, drop = FALSE], na.rm = TRUE)
     mean.g1_minus_mean.g2 <- mean.g1 - mean.g2
 
     return(
@@ -701,23 +711,47 @@ dmc.non.parametric <-  function(
 #' y <- runif(200, 0.01, 1)
 #' TCGAVisualize_volcano(x,y)
 #' \dontrun{
-#' TCGAVisualize_volcano(x,y,filename = NULL,y.cut = 10000000,x.cut=0.8,
-#'                       names = rep("AAAA",length(x)), legend = "Status",
-#'                       names.fill = FALSE)
-#' TCGAVisualize_volcano(x,y,filename = NULL,y.cut = 10000000,x.cut=0.8,
-#'                       names = as.character(1:length(x)), legend = "Status",
-#'                       names.fill = TRUE, highlight = c("1","2"),show="both")
-#' TCGAVisualize_volcano(x,y,filename = NULL,y.cut = 10000000,x.cut=c(-0.3,0.8),
-#'                       names = as.character(1:length(x)), legend = "Status",
-#'                       names.fill = TRUE, highlight = c("1","2"),show="both")
+#' TCGAVisualize_volcano(
+#'   x,
+#'   y,
+#'   filename = NULL,
+#'   y.cut = 10000000,
+#'   x.cut=0.8,
+#'    names = rep("AAAA",length(x)),
+#'    legend = "Status",
+#'    names.fill = FALSE
+#' )
+#'
+#' TCGAVisualize_volcano(
+#'   x,
+#'   y,
+#'   filename = NULL,
+#'   y.cut = 10000000,
+#'   x.cut = 0.8,
+#'    names = as.character(1:length(x)),
+#'    legend = "Status",
+#'    names.fill = TRUE, highlight = c("1","2"),
+#'    show = "both"
+#' )
+#' TCGAVisualize_volcano(
+#'   x,
+#'   y,
+#'   filename = NULL,
+#'   y.cut = 10000000,
+#'   x.cut = c(-0.3,0.8),
+#'   names = as.character(1:length(x)),
+#'   legend = "Status",
+#'   names.fill = TRUE,
+#'   highlight = c("1","2"),
+#'   show = "both"
+#' )
 #' }
 #' while (!(is.null(dev.list()["RStudioGD"]))){dev.off()}
 TCGAVisualize_volcano <- function(
     x,
     y,
     filename = "volcano.pdf",
-    ylab =  expression(paste(-Log[10],
-                             " (FDR corrected -P values)")),
+    ylab =  expression(paste(-Log[10]," (FDR corrected -P values)")),
     xlab = NULL,
     title = "Volcano plot",
     legend = NULL,
@@ -749,9 +783,11 @@ TCGAVisualize_volcano <- function(
     names(color) <- as.character(1:3)
 
     if (is.null(label)) {
-        label = c("1" = "Not Significant",
-                  "2" = "Up regulated",
-                  "3" = "Down regulated")
+        label = c(
+            "1" = "Not Significant",
+            "2" = "Up regulated",
+            "3" = "Down regulated"
+        )
     } else  {
         names(label) <- as.character(1:3)
     }
@@ -772,14 +808,12 @@ TCGAVisualize_volcano <- function(
     # hypermethylated/up regulated samples compared to old state
     up <- x  > x.cut.max
     up[is.na(up)] <- FALSE
-    if (any(up & sig))
-        threshold[up & sig] <- "2"
+    if (any(up & sig)) threshold[up & sig] <- "2"
 
     # hypomethylated/ down regulated samples compared to old state
     down <-  x < x.cut.min
     down[is.na(down)] <- FALSE
-    if (any(down & sig))
-        threshold[down & sig] <- "3"
+    if (any(down & sig)) threshold[down & sig] <- "3"
 
     if (!is.null(highlight)) {
         idx <- which(names %in% highlight)
@@ -789,9 +823,12 @@ TCGAVisualize_volcano <- function(
             names(color) <- as.character(1:4)
         }
     }
-    df <- data.frame(x = x,
-                     y = y,
-                     threshold = threshold)
+
+    df <- data.frame(
+        x = x,
+        y = y,
+        threshold = threshold
+    )
 
     # As last color should be the highlighthed, we need to order all the vectors
     if (!is.null(highlight)) {
@@ -802,6 +839,7 @@ TCGAVisualize_volcano <- function(
         df <- df[order.idx,]
         names <- names[order.idx]
     }
+
     # Plot a volcano plot
     p <- ggplot(
         data = df,
@@ -981,25 +1019,38 @@ TCGAVisualize_volcano <- function(
 #' in the rowRanges where group1 and group2 are the names of the groups
 #' @examples
 #' nrows <- 200; ncols <- 20
-#'  counts <- matrix(runif(nrows * ncols, 1, 1e4), nrows,
-#'            dimnames = list(paste0("cg",1:200),paste0("S",1:20)))
-#' rowRanges <- GenomicRanges::GRanges(rep(c("chr1", "chr2"), c(50, 150)),
-#'                    IRanges::IRanges(floor(runif(200, 1e5, 1e6)), width=100),
-#'                     strand=sample(c("+", "-"), 200, TRUE),
-#'                     feature_id=sprintf("ID%03d", 1:200))
-#' colData <- S4Vectors::DataFrame(Treatment=rep(c("ChIP", "Input"), 5),
-#'                     row.names=LETTERS[1:20],
-#'                     group=rep(c("group1","group2"),c(10,10)))
+#'  counts <- matrix(
+#'    runif(nrows * ncols, 1, 1e4), nrows,
+#'    dimnames = list(paste0("cg",1:200),paste0("S",1:20))
+#' )
+#' rowRanges <- GenomicRanges::GRanges(
+#'   rep(c("chr1", "chr2"), c(50, 150)),
+#'   IRanges::IRanges(floor(runif(200, 1e5, 1e6)), width = 100),
+#'   strand = sample(c("+", "-"), 200, TRUE),
+#'   feature_id = sprintf("ID%03d", 1:200)
+#' )
+#' colData <- S4Vectors::DataFrame(
+#'   Treatment = rep(c("ChIP", "Input"), 5),
+#'   row.names = LETTERS[1:20],
+#'   group = rep(c("group1","group2"),c(10,10))
+#' )
 #'data <- SummarizedExperiment::SummarizedExperiment(
 #'          assays=S4Vectors::SimpleList(counts=counts),
-#'          rowRanges=rowRanges,
-#'          colData=colData)
+#'          rowRanges = rowRanges,
+#'          colData = colData
+#' )
 #' SummarizedExperiment::colData(data)$group <- c(rep("group 1",ncol(data)/2),
 #'                          rep("group 2",ncol(data)/2))
 #' hypo.hyper <- TCGAanalyze_DMC(data, p.cut = 0.85,"group","group 1","group 2")
 #' SummarizedExperiment::colData(data)$group2 <- c(rep("group_1",ncol(data)/2),
 #'                          rep("group_2",ncol(data)/2))
-#' hypo.hyper <- TCGAanalyze_DMC(data, p.cut = 0.85,"group2","group_1","group_2")
+#' hypo.hyper <- TCGAanalyze_DMC(
+#'   data = data,
+#'   p.cut = 0.85,
+#'   groupCol = "group2",
+#'   group1 = "group_1",
+#'   group2 = "group_2"
+#' )
 TCGAanalyze_DMC <- function(
     data,
     groupCol = NULL,
@@ -1010,8 +1061,7 @@ TCGAanalyze_DMC <- function(
     paired = FALSE,
     adj.method = "BH",
     plot.filename = "methylation_volcano.pdf",
-    ylab =  expression(paste(-Log[10],
-                             " (FDR corrected -P values)")),
+    ylab =  expression(paste(-Log[10], " (FDR corrected -P values)")),
     xlab =  expression(paste("DNA Methylation difference (", beta, "-values)")),
     title = NULL,
     legend = "Legend",
@@ -1041,7 +1091,9 @@ TCGAanalyze_DMC <- function(
     if (any(rowSums(!is.na(assay(data))) == 0)) {
         stop(
             paste0(
-                "Sorry, but we found some probes with NA for all samples in your data, please either remove/or replace them"
+                "Sorry, but we found some probes with NA ",
+                "for all samples in your data, please either ",
+                "remove/or replace them"
             )
         )
     }
@@ -1059,8 +1111,9 @@ TCGAanalyze_DMC <- function(
         is.null(group1) && is.null(group2)) {
         message("Please, set the group1 and group2 parameters")
         return(NULL)
-    } else if (length(unique(colData(data)[, groupCol])) == 2  && (is.null(group1) ||
-                                                                   is.null(group2))) {
+    } else if (length(unique(colData(data)[, groupCol])) == 2  &&
+               (is.null(group1) || is.null(group2)))
+    {
         group1 <- unique(colData(data)[, groupCol])[1]
         group2 <- unique(colData(data)[, groupCol])[2]
     } else {
@@ -1076,9 +1129,8 @@ TCGAanalyze_DMC <- function(
         stop(paste0("Sorry, but ", group2, " has no samples"))
     }
 
-
     results <- dmc.non.parametric.se(
-        data,
+        data = data,
         groupCol = groupCol,
         group1 = group1,
         group2 = group2,
@@ -1090,16 +1142,17 @@ TCGAanalyze_DMC <- function(
 
     # defining title and label if not specified by the user
     if (is.null(title)) {
-        title <- paste("Volcano plot", "(", group2, "vs", group1, ")")
+        title <- paste("Volcano plot", "(", group1, "vs", group2, ")")
     }
 
     if (is.null(label)) {
-        label <- c("Not Significant",
-                   "Hypermethylated",
-                   "Hypomethylated")
-        label[2:3] <-  paste(label[2:3], "in", group2)
+        label <- c(
+            "Not Significant",
+            "Hypermethylated",
+            "Hypomethylated"
+        )
+        label[2:3] <-  paste(label[2:3], "in", group1)
     }
-
 
     group1.col <- gsub("[[:punct:]]| ", ".", group1)
     group2.col <- gsub("[[:punct:]]| ", ".", group2)
@@ -1123,7 +1176,8 @@ TCGAanalyze_DMC <- function(
     if (probe.names)
         names <- rownames(results)
 
-    if (plot.filename != FALSE) {
+    if (!is.null(plot.filename)) {
+        message("Saving volcano plot as: ", plot.filename)
         TCGAVisualize_volcano(
             x = results[, grep("minus", colnames(results))],
             y = results[, grep("p.value.adj", colnames(results))],
@@ -1138,6 +1192,7 @@ TCGAanalyze_DMC <- function(
             y.cut = p.cut
         )
     }
+
     if (save) {
         # saving results into a csv file
         csv <- paste0(
@@ -1227,18 +1282,20 @@ TCGAanalyze_DMC <- function(
 #' @examples
 #' \dontrun{
 #' library(SummarizedExperiment)
-#' met <- TCGAbiolinks:::getMetPlatInfo(genome = "hg38",platform = "27K")
+#' met <- TCGAbiolinks:::getMetPlatInfo(genome = "hg38", platform = "27K")
 #' values(met) <- NULL
 #' met$probeID <- names(met)
 #' nrows <- length(met); ncols <- 20
 #' counts <- matrix(runif(nrows * ncols, 1, 1e4), nrows)
-#' colData <- S4Vectors::DataFrame(Treatment=rep(c("ChIP", "Input"), 5),
-#'                     row.names=LETTERS[1:20],
-#'                     group=rep(c("group1","group2"),c(10,10)))
+#' colData <- S4Vectors::DataFrame(
+#'   Treatment = rep(c("ChIP", "Input"), 5),
+#'   row.names = LETTERS[1:20],
+#'   group = rep(c("group1","group2"),c(10,10))
+#' )
 #' met <- SummarizedExperiment::SummarizedExperiment(
-#'          assays=S4Vectors::SimpleList(counts=counts),
-#'          rowRanges=met,
-#'          colData=colData)
+#'          assays = S4Vectors::SimpleList(counts=counts),
+#'          rowRanges = met,
+#'          colData = colData)
 #' rowRanges(met)$diffmean.g1.g2 <- c(runif(nrows, -0.1, 0.1))
 #' rowRanges(met)$diffmean.g2.g1 <- -1*(rowRanges(met)$diffmean.g1.g2)
 #' rowRanges(met)$p.value.g1.g2 <- c(runif(nrows, 0, 1))
@@ -1247,17 +1304,19 @@ TCGAanalyze_DMC <- function(
 #' exp$logFC <- runif(nrow(exp), -5, 5)
 #' exp$FDR <- runif(nrow(exp), 0.01, 1)
 #'
-#' result <- TCGAvisualize_starburst(met,
-#'                                   exp,
-#'                                   exp.p.cut = 0.05,
-#'                                   met.p.cut = 0.05,
-#'                                   logFC.cut = 2,
-#'                                   group1 = "g1",
-#'                                   group2 = "g2",
-#'                                   genome = "hg38",
-#'                                   met.platform = "27K",
-#'                                   diffmean.cut = 0.0,
-#'                                   names  = TRUE)
+#' result <- TCGAvisualize_starburst(
+#'   met,
+#'   exp,
+#'   exp.p.cut = 0.05,
+#'   met.p.cut = 0.05,
+#'   logFC.cut = 2,
+#'   group1 = "g1",
+#'   group2 = "g2",
+#'   genome = "hg38",
+#'   met.platform = "27K",
+#'   diffmean.cut = 0.0,
+#'   names  = TRUE
+#' )
 #' }
 TCGAvisualize_starburst <- function(
     met,
@@ -1742,37 +1801,39 @@ TCGAvisualize_starburst <- function(
 }
 
 
-getMetPlatInfo <- function(genome, platform) {
-    base <- "http://zwdzwd.io/InfiniumAnnotation/current"
+
+getMetPlatInfo <- function(
+    genome = c("hg38","hg19"),
+    platform = c("450k","EPIC","27k")
+){
+    genome <- match.arg(genome)
+    # arrayType <- match.arg(arrayType)
 
     platform <-  switch(
         platform,
-        "450K" = "hm450",
-        "450k" = "hm450",
-        "27k"  = "hm27",
-        "27K"  = "hm27",
+        "450K" = "HM450",
+        "450k" = "HM450",
+        "27k"  = "HM27",
+        "27K"  = "HM27",
         "EPIC" = "EPIC"
     )
-    path <- file.path(
-        base,
-        platform,
-        paste(platform, "hg19.manifest.rds", sep = ".")
+    if(is.null(platform)){
+        stop("platform must one of the following options: 450k, EPIC or 27k")
+    }
+
+    check_package("sesameData")
+    check_package("sesame")
+
+    sesameData::sesameDataCacheAll()
+    sesameData::sesameDataGet(
+        str_c(
+            platform,
+            ".",
+            genome,
+            ".manifest"
+        )
     )
-    if (grepl("hg38", genome)) path <- gsub("hg19", "hg38", path)
-    message(path)
-
-    if (Sys.info()["sysname"] == "Windows")
-        mode <- "wb"
-    else
-        mode <- "w"
-
-    if (!file.exists(basename(path)))
-        downloader::download(path, basename(path), mode = mode)
-
-    gr <- readRDS(basename(path))
-    return(gr)
 }
-
 
 #' getTSS to fetch GENCODE gene annotation (transcripts level) from Bioconductor package biomaRt
 #' If upstream and downstream are specified in TSS list, promoter regions of GENCODE gene will be generated.
