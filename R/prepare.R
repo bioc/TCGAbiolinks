@@ -70,12 +70,21 @@ GDCprepare <- function(
   isServeOK()
   if(missing(query)) stop("Please set query parameter")
 
-  test.duplicated.cases <- (any(duplicated(query$results[[1]]$cases)) &
-                              !(query$data.type %in% c("Clinical data",
-                                                       "Protein expression quantification",
-                                                       "Raw intensities",
-                                                       "Clinical Supplement",
-                                                       "Biospecimen Supplement")))
+  test.duplicated.cases <-
+    (
+      any(
+        duplicated(query$results[[1]]$cases)) & # any duplicated
+        !(query$data.type %in% c(
+          "Clinical data",
+          "Protein expression quantification",
+          "Raw intensities",
+          "Clinical Supplement",
+          "Masked Somatic Mutation",
+          "Biospecimen Supplement")
+        )
+    )
+
+  "Aliquot Ensemble Somatic Variant Merging and Masking"
 
   if(test.duplicated.cases) {
     dup <- query$results[[1]]$cases[duplicated(query$results[[1]]$cases)]
@@ -120,8 +129,10 @@ GDCprepare <- function(
 
       }
     } else {
-      stop(paste0("I couldn't find all the files from the query. ",
-                  "Please check if the directory parameter is right or `GDCdownload` downloaded the samples."))
+      stop(
+        paste0("I couldn't find all the files from the query. ",
+               "Please check if the directory parameter is right or `GDCdownload` downloaded the samples.")
+      )
     }
   }
 
@@ -148,10 +159,12 @@ GDCprepare <- function(
   }  else if (grepl("Raw intensities",query$data.type, ignore.case = TRUE)) {
     # preparing IDAT files
     data <- readIDATDNAmethylation(files, barcode = cases, summarizedExperiment, unique(query$platform), query$legacy)
+  }  else if (grepl("Proteome Profiling",query$data.category,ignore.case = TRUE)) {
+    data <- readProteomeProfiling(files, cases = cases)
   }  else if (grepl("Protein expression",query$data.category,ignore.case = TRUE)) {
     data <- readProteinExpression(files, cases = cases)
   }  else if (grepl("Simple Nucleotide Variation",query$data.category,ignore.case = TRUE)) {
-    if(grepl("Masked Somatic Mutation",query$results[[1]]$data_type,ignore.case = TRUE) | source == "legacy")
+    if(grepl("Masked Somatic Mutation",query$results[[1]]$data_type[1],ignore.case = TRUE) | source == "legacy")
       suppressWarnings(data <- readSimpleNucleotideVariationMaf(files))
   }  else if (grepl("Clinical|Biospecimen", query$data.category, ignore.case = TRUE)){
     data <- readClinical(files, query$data.type, cases = cases)
@@ -1108,6 +1121,35 @@ readProteinExpression <- function(files,cases) {
   return(df)
 }
 
+readProteomeProfiling <- function(files,cases) {
+
+  list.of.protein.df <- plyr::alply(files,1, function(f) {
+    data <- readr::read_tsv(
+      file = f,
+      show_col_types = FALSE,
+      col_names = TRUE,
+      progress = FALSE
+    )
+    colnames(data)[ncol(data)] <- cases[which(f == files)]
+    data
+  }, .progress = "time")
+
+  # Just check if the data is in the same order, since we will not merge
+  # the data frames to save memory
+  stopifnot(all(unlist(list.of.protein.df %>% map(function(y){all(y[,5] ==  list.of.protein.df[[1]][,5])}) )))
+
+  # need to check if it works in all cases
+  # tested for HTSeq - FPKM-UQ and Counts only
+  df <- bind_cols(list.of.protein.df[[1]][,1:5],list.of.protein.df %>%  map_df(6))
+
+  if(!missing(cases))  colnames(df)[-c(1:5)] <- cases
+
+  return(df)
+}
+
+makeSEfromProteomeProfiling <- function(){
+
+}
 
 makeSEfromTranscriptomeProfilingSTAR <- function(data, cases, assay.list){
   # How many cases do we have?
