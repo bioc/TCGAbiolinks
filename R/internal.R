@@ -51,16 +51,20 @@ getGDCInfo <- function(){
 }
 
 checkProjectInput <- function(project){
+
     projects <- getGDCprojects()
+
     if(missing(project)) {
-        print(knitr::kable(projects[,c(7,9)]))
+        print(knitr::kable(projects[,c("id","name")]))
         stop("Please set a project argument from the column id above")
     }
-    for(proj in project)
-        if(!(proj %in% projects$project_id)) {
-            print(knitr::kable(projects[,c(7,9)]))
+
+    for(proj in project) {
+        if( !(proj %in% projects$project_id)) {
+            print(knitr::kable(projects[,c("id","name")]))
             stop("Please set a valid project argument from the column id above. Project ", proj, " was not found.")
         }
+    }
 }
 
 checkLegacyPlatform <- function(project,data.category, legacy = FALSE){
@@ -111,6 +115,7 @@ checkDataTypeInput <- function(legacy, data.type){
                               "Clinical data",
                               "Copy number variation",
                               "ABI sequence trace",
+                              "Protein Expression Quantification",
                               "Biospecimen data",
                               "Simple somatic mutation",
                               "Bisulfite sequence alignment",
@@ -128,11 +133,14 @@ checkDataTypeInput <- function(legacy, data.type){
             "Gene Expression Quantification",
             "Raw CGI Variant",
             "Methylation Beta Value",
+            "Differential Gene Expression",
             "Splice Junction Quantification",
+            "Protein Expression Quantification",
             "Annotated Somatic Mutation",
             "Raw Simple Somatic Mutation",
             "Masked Somatic Mutation",
             "Copy Number Segment",
+            "Masked Intensities",
             "Allele-specific Copy Number Segment",
             "Masked Copy Number Segment",
             "Isoform Expression Quantification",
@@ -142,6 +150,7 @@ checkDataTypeInput <- function(legacy, data.type){
             "Gene Level Copy Number Scores",
             "Protein Expression Quantification",
             "Clinical Supplement",
+            "Single Cell Analysis",
             "Masked Somatic Mutation",
             "Slide Image")
         if(!data.type %in% harmonized.data.type) {

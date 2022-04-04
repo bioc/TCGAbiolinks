@@ -1,5 +1,5 @@
-#' @title Get hg19 or hg38 information from biomaRt
-#' @description Get hg19 or hg38 information from biomaRt
+#' @title Get hg19 gene annotation or hg38 (gencode v36)
+#' @description Get hg19 (from biomart) or hg38 (gencode v36) gene annotation
 #' @param genome hg38 or hg19
 #' @param as.granges Output as GRanges or data.frame
 #' @import TCGAbiolinksGUI.data
@@ -10,7 +10,7 @@ get.GRCh.bioMart <- function(
 ) {
 
     genome <- match.arg(genome)
-    # Since the amout of users complaining about the access we
+    # Since the amount of users complaining about the access we
     # also added the data into a data package
     check_package("TCGAbiolinksGUI.data")
     if (genome == "hg19") {
@@ -19,27 +19,29 @@ get.GRCh.bioMart <- function(
                  package = "TCGAbiolinksGUI.data",
                  envir = environment())
         )
+
+        if (as.granges) {
+            gene.location$strand[gene.location$strand == 1] <- "+"
+            gene.location$strand[gene.location$strand == -1] <- "-"
+            gene.location$chromosome_name <- paste0("chr",gene.location$chromosome_name)
+            gene.location <- makeGRangesFromDataFrame(
+                gene.location, seqnames.field = "chromosome_name",
+                start.field = "start_position",
+                end.field = "end_position",
+                keep.extra.columns = TRUE
+            )
+        }
     } else {
         gene.location <- get(
             data(
-                "gene.location.hg38",
+                "gencode.v36.annotation.genes",
                 package = "TCGAbiolinksGUI.data",
                 envir = environment()
             )
         )
+        if(!as.granges) gene.location <- as.data.frame(gene.location)
     }
 
-    if (as.granges) {
-        gene.location$strand[gene.location$strand == 1] <- "+"
-        gene.location$strand[gene.location$strand == -1] <- "-"
-        gene.location$chromosome_name <- paste0("chr",gene.location$chromosome_name)
-        gene.location <- makeGRangesFromDataFrame(
-            gene.location, seqnames.field = "chromosome_name",
-            start.field = "start_position",
-            end.field = "end_position",
-            keep.extra.columns = TRUE
-        )
-    }
     return(gene.location)
 }
 
@@ -70,9 +72,11 @@ map.ensg <- function(genome = "hg38", genes) {
 #' @importFrom GenomicRanges makeGRangesFromDataFrame promoters
 #' @importFrom biomaRt useEnsembl listDatasets getBM
 getTSS <- function(
-    genome = "hg38",
+    genome = c("hg38","hg19"),
     TSS = list(upstream = NULL, downstream = NULL)
 ) {
+    genome <- match.arg(genome)
+
     host <- ifelse(genome == "hg19",  "grch37.ensembl.org", "www.ensembl.org")
     ensembl <- tryCatch({
         useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl", host =  host)

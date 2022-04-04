@@ -162,7 +162,7 @@ query <- GDCquery(
   project = "TCGA-GBM",
   data.category = "Transcriptome Profiling",
   data.type = "Gene Expression Quantification", 
-  workflow.type = "HTSeq - FPKM-UQ",
+  workflow.type = "STAR - Counts",
   barcode = c("TCGA-14-0736-02A-01R-2005-01", "TCGA-06-0211-02A-02R-2005-01")
 )
 GDCdownload(query)
@@ -195,9 +195,7 @@ Examples of query, download, prepare can be found in this [gist](https://gist.gi
 
 | Data.category               | Data.type                         | Workflow Type   | Status                                                                      |
 |-----------------------------|-----------------------------------|-----------------|-----------------------------------------------------------------------------|
-| Transcriptome Profiling     | Gene Expression Quantification    | HTSeq - Counts  | Data frame or SE (losing 5% of information when mapping to genomic regions) |
-|                             |                                   | HTSeq - FPKM-UQ | Returning only a (losing 5% of information when mapping to genomic regions) |
-|                             |                                   | HTSeq - FPKM    | Returning only a (losing 5% of information when mapping to genomic regions) |
+| Transcriptome Profiling     | Gene Expression Quantification    | STAR - Counts  | Data frame or SE (losing 5% of information when mapping to genomic regions) |
 |                             | Isoform Expression Quantification | Not needed      |                                                                             |
 |                             | miRNA Expression Quantification   | Not needed      | Returning only a dataframe for  the moment                                  |
 | Copy number variation       | Copy Number Segment               |                 | Returning only a dataframe for  the moment                                  |
@@ -338,6 +336,79 @@ data <- GDCprepare(query.exp.hg19)
 
 ## Harmonized database
 
+### Single cell
+
+GDC Single Cell RNA-Seq information: 
+https://docs.gdc.cancer.gov/Data/Bioinformatics_Pipelines/Expression_mRNA_Pipeline/#scrna-seq-pipeline-single-nuclei
+
+```{r, eval = FALSE}
+query.sc.analysis <- GDCquery(
+    project = "CPTAC-3", 
+    data.category = "Transcriptome Profiling",
+    legacy = FALSE,
+    access = "open",
+    data.type = "Single Cell Analysis",
+    data.format =  "TSV"
+)  
+GDCdownload(query.sc.analysis)
+Single.Cell.Analysis.list <- GDCprepare(query.sc.analysis)
+```
+```{r, eval = FALSE,include=F}
+query.hdF5 <- GDCquery(
+    project = "CPTAC-3", 
+    data.category = "Transcriptome Profiling",
+    legacy = FALSE,
+    access = "open",
+    data.type = "Single Cell Analysis",
+    barcode = c("CPT0167860015","CPT0206880004"),
+    data.format =  "HDF5"
+)  
+GDCdownload(query.hdF5)
+df.HDF5 <- GDCprepare(query.hdF5)
+```
+```{r, eval = FALSE}
+query.raw.counts <- GDCquery(
+    project = "CPTAC-3", 
+    data.category = "Transcriptome Profiling",
+    legacy = FALSE,
+    access = "open",
+    data.type = "Gene Expression Quantification",
+    barcode = c("CPT0167860015","CPT0206880004"),
+    workflow.type = "CellRanger - 10x Raw Counts"
+)  
+GDCdownload(query.raw.counts)
+raw.counts.list <- GDCprepare(query.raw.counts)
+```
+
+```{r, eval = FALSE}
+query.filtered.counts <- GDCquery(
+    project = "CPTAC-3", 
+    data.category = "Transcriptome Profiling",
+    legacy = FALSE,
+    access = "open",
+    data.type = "Gene Expression Quantification",
+    barcode = c("CPT0167860015","CPT0206880004"),
+    workflow.type = "CellRanger - 10x Filtered Counts"
+)  
+GDCdownload(query.filtered.counts)
+filtered.counts.list <- GDCprepare(query.filtered.counts)
+```
+
+
+```{r, eval = FALSE}
+query.sc.dea <- GDCquery(
+    project = "CPTAC-3", 
+    data.category = "Transcriptome Profiling",
+    legacy = FALSE,
+    access = "open",
+    data.type = "Differential Gene Expression",
+    barcode = c("CPT0167860015","CPT0206880004"),
+    workflow.type = "Seurat - 10x Chromium"
+)  
+GDCdownload(query.sc.dea)
+sc.dea.list <- GDCprepare(query.sc.dea)
+```
+
 ### Copy Number
 
 ```{r, eval = FALSE}
@@ -374,7 +445,7 @@ query.exp.hg38 <- GDCquery(
   project = "TCGA-GBM", 
   data.category = "Transcriptome Profiling", 
   data.type = "Gene Expression Quantification", 
-  workflow.type = "HTSeq - FPKM-UQ",
+  workflow.type = "STAR - Counts",
   barcode =  c("TCGA-14-0736-02A-01R-2005-01", "TCGA-06-0211-02A-02R-2005-01")
 )
 GDCdownload(query.exp.hg38)
@@ -429,6 +500,7 @@ isoform <- GDCprepare(
 query_met.hg38 <- GDCquery(
   project= "TCGA-LGG", 
   data.category = "DNA Methylation", 
+  data.type = "Methylation Beta Value",
   platform = "Illumina Human Methylation 450", 
   barcode = c("TCGA-HT-8111-01A-11D-2399-05","TCGA-HT-A5R5-01A-11D-A28N-05")
 )
@@ -441,7 +513,17 @@ data.hg38 <- GDCprepare(query_met.hg38)
 # Using sesame 	http://bioconductor.org/packages/sesame/
 # Please cite 10.1093/nar/gky691 and doi: 10.1093/nar/gkt090.
 library(TCGAbiolinks)
-proj <- "TCGA-ACC"
+query.idat <- GDCquery(
+  project = "TCGA-LGG", 
+  data.category = "DNA Methylation", 
+  data.type = "Masked Intensities",
+  platform = "Illumina Human Methylation 450", 
+  barcode = c("TCGA-HT-8111-01A-11D-2399-05","TCGA-HT-A5R5-01A-11D-A28N-05")
+)
+GDCdownload(query, method = "api", files.per.chunk = 20)
+betas <- GDCprepare(query.idat)
+
+
 query <- GDCquery(
   project = proj,
   data.category = "Raw microarray data",
@@ -457,5 +539,17 @@ tryCatch(
   error = function(e) GDCdownload(query, method = "client")
 )
 betas <- GDCprepare(query)
+```
+
+### Protein
+
+```{r, eval = FALSE}
+query.rppa <- GDCquery(
+    project = "TCGA-ESCA", 
+    data.category = "Proteome Profiling",
+    data.type = "Protein Expression Quantification"
+)
+GDCdownload(query.rppa) 
+rppa <- GDCprepare(query.rppa) 
 ```
 

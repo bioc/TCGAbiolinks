@@ -17,6 +17,7 @@ GDC Application Programming Interface (API) to search, download and prepare rele
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
+BiocManager::install("BioinformaticsFMRP/TCGAbiolinksGUI.data")
 BiocManager::install("BioinformaticsFMRP/TCGAbiolinks")
 ```
 
@@ -44,8 +45,7 @@ For more information please check: https://docs.docker.com/ and https://www.bioc
 
 ### Manual ###
 
-http://bioconductor.org/packages/devel/bioc/vignettes/TCGAbiolinks/inst/doc/tcgaBiolinks.html
-http://bioinformaticsfmrp.github.io/TCGAbiolinks/
+http://bioconductor.org/packages/devel/bioc/vignettes/TCGAbiolinks/inst/doc/index.html
 
 ------------------------------------------------------------------------
 

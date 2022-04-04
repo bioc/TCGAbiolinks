@@ -1358,62 +1358,45 @@ UseRaw_afterFilter <- function(DataPrep, DataFilt) {
 #' dataFilt <- TCGAanalyze_Filtering(tabDF = dataBRCA, method = "quantile", qnt.cut =  0.25)
 #' samplesNT <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("NT"))
 #' samplesTP <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("TP"))
-#' dataDEGs <- TCGAanalyze_DEA(dataFilt[,samplesNT],
-#'                             dataFilt[,samplesTP],
-#'                             Cond1type = "Normal",
-#'                             Cond2type = "Tumor")
+#' dataDEGs <- TCGAanalyze_DEA(
+#'   dataFilt[,samplesNT],
+#'   dataFilt[,samplesTP],
+#'   Cond1type = "Normal",
+#'   Cond2type = "Tumor"
+#' )
 #' dataDEGsFilt <- dataDEGs[abs(dataDEGs$logFC) >= 1,]
 #' dataTP <- dataFilt[,samplesTP]
 #' dataTN <- dataFilt[,samplesNT]
-#' dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGsFilt,"Tumor","Normal",
-#' dataTP,dataTN)
-TCGAanalyze_LevelTab <- function(FC_FDR_table_mRNA,
-                                 typeCond1,
-                                 typeCond2,
-                                 TableCond1,
-                                 TableCond2,
-                                 typeOrder = TRUE) {
-    TF_enriched <- as.matrix(rownames(FC_FDR_table_mRNA))
-    TableLevel <- matrix(0, nrow(TF_enriched), 6)
-    TableLevel <- as.data.frame(TableLevel)
+#' dataDEGsFiltLevel <- TCGAanalyze_LevelTab(
+#'   FC_FDR_table_mRNA = dataDEGsFilt,
+#'   typeCond1 = "Tumor",
+#'   typeCond2 = "Normal",
+#'   TableCond1 = dataTP,
+#'   TableCond2 = dataTN
+#' )
+TCGAanalyze_LevelTab <- function(
+    FC_FDR_table_mRNA,
+    typeCond1,
+    typeCond2,
+    TableCond1,
+    TableCond2,
+    typeOrder = TRUE
+) {
+    TableLevel <- data.frame(
+        "mRNA" = rownames(FC_FDR_table_mRNA),
+        "logFC" = FC_FDR_table_mRNA$logFC,
+        "FDR" = FC_FDR_table_mRNA$FDR,
+        "Delta" =  FC_FDR_table_mRNA$logFC * rowMeans(TableCond1[rownames(FC_FDR_table_mRNA),],na.rm = TRUE)
+    )
+    TableLevel[[typeCond1]] <- rowMeans(TableCond1[TableLevel$mRNA,],na.rm = TRUE)
+    TableLevel[[typeCond2]] <- rowMeans(TableCond2[TableLevel$mRNA,],na.rm = TRUE)
 
-    colnames(TableLevel) <-
-        c("mRNA", "logFC", "FDR", typeCond1, typeCond2, "Delta")
-
-
-    TableLevel[, "mRNA"] <- TF_enriched
-    Tabfilt <-
-        FC_FDR_table_mRNA[which(rownames(FC_FDR_table_mRNA) %in%
-                                    TF_enriched), ]
-    TableLevel[, "logFC"] <-
-        as.numeric(Tabfilt[TF_enriched, ][, "logFC"])
-    TableLevel[, "FDR"] <- as.numeric(Tabfilt[TF_enriched, ][, "FDR"])
-
-
-    MeanTumor <- matrix(0, nrow(TF_enriched), 1)
-    MeanDiffTumorNormal <- matrix(0, nrow(TF_enriched), 1)
-
-    for (i in 1:nrow(TF_enriched)) {
-        TableLevel[i, typeCond1] <-
-            mean(as.numeric(TableCond1[rownames(TableCond1) %in%
-                                           TF_enriched[i] ,]))
-        TableLevel[i, typeCond2] <-
-            mean(as.numeric(TableCond2[rownames(TableCond2) %in%
-                                           TF_enriched[i] ,]))
-    }
-
-
-    TableLevel[, "Delta"] <- as.numeric(abs(TableLevel[, "logFC"]) *
-                                            TableLevel[, typeCond1])
-
-    TableLevel <-
-        TableLevel[order(as.numeric(TableLevel[, "Delta"]),
-                         decreasing = typeOrder), ]
-
+    TableLevel <- TableLevel[order(as.numeric(TableLevel[, "Delta"]), decreasing = typeOrder),]
     rownames(TableLevel) <-  TableLevel[, "mRNA"]
+
     if (all(grepl("ENSG", rownames(TableLevel))))
-        TableLevel <-
-        cbind(TableLevel, map.ensg(genes = rownames(TableLevel))[, 2:3])
+        TableLevel <- cbind(TableLevel, map.ensg(genes = rownames(TableLevel))[, 2:3])
+
     return(TableLevel)
 }
 
@@ -2150,81 +2133,3 @@ matchedMetExp <- function(project, legacy = FALSE, n = NULL) {
 }
 
 
-#' @title Generate Stemness Score based on RNASeq (mRNAsi stemness index) Malta et al., Cell, 2018
-#' @description TCGAanalyze_Stemness generate the mRNAsi score
-#' @param stemSig is a vector of the stemness Signature generated using gelnet package
-#' @param dataGE is a matrix of Gene expression (genes in rows, samples in cols) from TCGAprepare
-#' @param annotation as default is FALSE.
-#' If annotation == subtype it returns the molecular subtype of a sample.
-#' If annotation == sampleType it returns the type of a sample (normal or tumor)
-#' @export
-#' @return table with samples and stemness score
-#' @examples
-#'  # Selecting TCGA breast cancer (10 samples) for example stored in dataBRCA
-#'  dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
-#'  # quantile filter of genes
-#'  dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
-#'                                   method = "quantile",
-#'                                   qnt.cut =  0.25)
-#'  dataBRCA_stemness <- TCGAanalyze_Stemness(stemSig = PCBC_stemSig,
-#'  dataGE = dataFilt, annotation = "sampleType")
-TCGAanalyze_Stemness <- function(stemSig,
-                                 dataGE,
-                                 annotation = FALSE) {
-    reads <- dataGE
-    X <- reads
-    w <- stemSig
-    commonStemsigGenes <- intersect(names(w), rownames(X))
-
-    X <- X[commonStemsigGenes, ]
-    w <- w[rownames(X)]
-
-    # Score the Matrix X using Spearman correlation.
-
-    s <-
-        apply(X, 2, function(z) {
-            cor(z, w, method = "sp", use = "complete.obs")
-        })
-
-    ## Scale the scores to be between 0 and 1
-    s <- s - min(s)
-    s <- s / max(s)
-
-    dataSce_stemness <- cbind(s)
-
-    dataAnnotationSC <- matrix(0, ncol(reads), 2)
-    colnames(dataAnnotationSC) <- c("Sample", "Annotation")
-
-
-    dataAnnotationSC <- as.data.frame(dataAnnotationSC)
-    dataAnnotationSC$Sample <- colnames(reads)
-    rownames(dataAnnotationSC) <- colnames(reads)
-
-    dataAnnotationSC <-
-        cbind(dataAnnotationSC, StemnessScore = rep(0, nrow(dataAnnotationSC)))
-    dataAnnotationSC[rownames(dataSce_stemness), "StemnessScore"] <-
-        as.numeric(dataSce_stemness)
-
-    colnames(dataAnnotationSC)[1] <- "Sample"
-    if (annotation == "sampleType") {
-        sampleTP <-
-            TCGAquery_SampleTypes(barcode = dataAnnotationSC$Sample, typesample = "TP")
-        sampleNT <-
-            TCGAquery_SampleTypes(barcode = dataAnnotationSC$Sample, typesample = "NT")
-
-        dataAnnotationSC[sampleTP, "Annotation"] <- "TP"
-        dataAnnotationSC[sampleNT, "Annotation"] <- "NT"
-    }
-
-    if (annotation == "subtype") {
-        dataSubt <- TCGAquery_subtype(tumor = "BRCA")
-
-        for (i in 1:nrow(dataAnnotationSC)) {
-            curSample <- dataAnnotationSC$Sample[i]
-            dataAnnotationSC$Annotation <-
-                dataSubt[dataSubt$patient %in% substr(curSample, 1, 12), "BRCA_Subtype_PAM50"]
-        }
-    }
-
-    return(dataAnnotationSC)
-}

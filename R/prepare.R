@@ -23,18 +23,22 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' query <- GDCquery(project = "TCGA-KIRP",
-#'                   data.category = "Simple Nucleotide Variation",
-#'                   data.type = "Masked Somatic Mutation",
-#'                   workflow.type = "MuSE Variant Aggregation and Masking")
+#' query <- GDCquery(
+#'   project = "TCGA-KIRP",
+#'   data.category = "Simple Nucleotide Variation",
+#'   data.type = "Masked Somatic Mutation",
+#'   workflow.type = "MuSE Variant Aggregation and Masking"
+#' )
 #' GDCdownload(query, method = "api", directory = "maf")
 #' maf <- GDCprepare(query, directory = "maf")
 #'
 #' # Get GISTIC values
-#' gistic.query <- GDCquery(project = "TCGA-ACC",
-#'                          data.category = "Copy Number Variation",
-#'                          data.type = "Gene Level Copy Number Scores",
-#'                          access = "open")
+#' gistic.query <- GDCquery(
+#'   project = "TCGA-ACC",
+#'   data.category = "Copy Number Variation",
+#'   data.type = "Gene Level Copy Number Scores",
+#'   access = "open"
+#' )
 #' GDCdownload(gistic.query)
 #' gistic <- GDCprepare(gistic.query)
 #' }
@@ -78,13 +82,14 @@ GDCprepare <- function(
           "Clinical data",
           "Protein expression quantification",
           "Raw intensities",
+          "Masked Intensities",
           "Clinical Supplement",
           "Masked Somatic Mutation",
-          "Biospecimen Supplement")
+          "Biospecimen Supplement"
+          )
         )
     )
 
-  "Aliquot Ensemble Somatic Variant Merging and Masking"
 
   if(test.duplicated.cases) {
     dup <- query$results[[1]]$cases[duplicated(query$results[[1]]$cases)]
@@ -124,14 +129,21 @@ GDCprepare <- function(
       )
       files.idat <- file.path(directory, files.idat)
       if (!all(file.exists(files) | file.exists(files.idat))) {
-        stop(paste0("I couldn't find all the files from the query. ",
-                    "Please check if the directory parameter is right or `GDCdownload` downloaded the samples."))
-
+        stop(
+          paste0(
+            "I couldn't find all the files from the query. ",
+            "Please check if the directory parameter is right ",
+            "or `GDCdownload` downloaded the samples."
+          )
+        )
       }
     } else {
       stop(
-        paste0("I couldn't find all the files from the query. ",
-               "Please check if the directory parameter is right or `GDCdownload` downloaded the samples.")
+        paste0(
+          "I couldn't find all the files from the query. ",
+          "Please check if the directory parameter is right ",
+          "or `GDCdownload` downloaded the samples."
+        )
       )
     }
   }
@@ -139,13 +151,26 @@ GDCprepare <- function(
   cases <- ifelse(grepl("TCGA|TARGET",query$results[[1]]$project %>% unlist()),query$results[[1]]$cases,query$results[[1]]$sample.submitter_id)
 
   if (grepl("Transcriptome Profiling", query$data.category, ignore.case = TRUE)){
-    data <- readTranscriptomeProfiling(
-      files = files,
-      data.type = ifelse(!is.na(query$data.type),  as.character(query$data.type),  unique(query$results[[1]]$data_type)),
-      workflow.type = unique(query$results[[1]]$analysis_workflow_type),
-      cases = cases,
-      summarizedExperiment
-    )
+
+    if(unique(query$results[[1]]$experimental_strategy) == "scRNA-Seq"){
+      #if (grepl("Single Cell Analysis", unique(query$results[[1]]$data_type), ignore.case = TRUE)){
+
+      data <- readSingleCellAnalysis(
+        files = files,
+        data_format = unique(query$results[[1]]$data_format),
+        workflow.type = unique(query$results[[1]]$analysis_workflow_type),
+        cases = cases
+      )
+      return(data)
+    } else {
+      data <- readTranscriptomeProfiling(
+        files = files,
+        data.type = ifelse(!is.na(query$data.type),  as.character(query$data.type),  unique(query$results[[1]]$data_type)),
+        workflow.type = unique(query$results[[1]]$analysis_workflow_type),
+        cases = cases,
+        summarizedExperiment
+      )
+    }
   } else if(grepl("Copy Number Variation",query$data.category,ignore.case = TRUE)) {
     if (unique(query$results[[1]]$data_type) == "Gene Level Copy Number Scores") {
       data <- readGISTIC(files, query$results[[1]]$cases)
@@ -154,9 +179,9 @@ GDCprepare <- function(
     } else {
       data <- readCopyNumberVariation(files, query$results[[1]]$cases)
     }
-  }  else if (grepl("DNA methylation",query$data.category, ignore.case = TRUE)) {
+  }  else if (grepl("Methylation Beta Value",query$data.type, ignore.case = TRUE)) {
     data <- readDNAmethylation(files, cases = cases, summarizedExperiment, unique(query$platform))
-  }  else if (grepl("Raw intensities",query$data.type, ignore.case = TRUE)) {
+  }  else if (grepl("Raw intensities|Masked Intensities",query$data.type, ignore.case = TRUE)) {
     # preparing IDAT files
     data <- readIDATDNAmethylation(files, barcode = cases, summarizedExperiment, unique(query$platform), query$legacy)
   }  else if (grepl("Proteome Profiling",query$data.category,ignore.case = TRUE)) {
@@ -285,6 +310,52 @@ readClinical <- function(files, data.type, cases){
   return(ret)
 }
 
+
+readSingleCellAnalysis <- function(
+  files = files,
+  data_format = NULL,
+  workflow.type = NULL,
+  cases = cases
+) {
+
+  if(data_format == "MEX" & workflow.type == "CellRanger - 10x Filtered Counts"){
+    check_package("Seurat")
+    ret <- plyr::llply(files,.fun = function(f){
+      untar(tarfile = f,exdir = dirname(f))
+      Seurat::Read10X(data.dir = gsub("\\.tar\\.gz","",f))
+    },.progress = "time")
+    names(ret) <- cases
+  }
+
+  if(data_format == "MEX" & workflow.type == "CellRanger - 10x Raw Counts"){
+    ret <- plyr::llply(files,.fun = function(f){
+      # uncompress raw file
+      untar(tarfile = f,exdir = dirname(f))
+      Read10X(data.dir = gsub("\\.tar\\.gz","",f))
+    },.progress = "time")
+    names(ret) <- cases
+  }
+  # TSV files
+  if(data_format == "TSV"){
+    ret <- plyr::llply(files,.fun = function(f){
+      readr::read_tsv(f)
+    },.progress = "time")
+    names(ret) <- cases
+  }
+
+  if(data_format == "HDF5"){
+
+    stop("We are not preparing loom files")
+    check_package("SeuratDisk")
+    check_package("Seurat")
+    ret <- SeuratDisk::Connect(filename = files, mode = "r")
+    ret <- Seurat::as.Seurat(ret)
+    print(files)
+  }
+
+  # HDF5
+  return(ret)
+}
 
 #' @importFrom tidyr separate
 readExonQuantification <- function (files, cases, summarizedExperiment = TRUE){
@@ -623,7 +694,7 @@ readIDATDNAmethylation <- function(
 
   # Check if moved files would be moved outside of scope folder, if so, path doesn't change
   moved.files <- sapply(files,USE.NAMES=FALSE,function(x){
-    if (grepl("Raw_intensities",dirname(dirname(x)))) {
+    if (grepl("Raw_intensities|Masked_Intensities",dirname(dirname(x)))) {
       return(file.path(dirname(dirname(x)), basename(x)))
     }
     return(x)
@@ -631,7 +702,7 @@ readIDATDNAmethylation <- function(
 
   # for each file move it to upper parent folder if necessary
   plyr::a_ply(files, 1,function(x){
-    if (grepl("Raw_intensities",dirname(dirname(x)))) {
+    if (grepl("Raw_intensities|Masked_Intensities",dirname(dirname(x)))) {
       tryCatch(
         move(x,
              file.path(dirname(dirname(x)), basename(x)),
@@ -673,8 +744,15 @@ readIDATDNAmethylation <- function(
 # TODO: Improve this function to be more generic as possible
 #' @importFrom GenomicRanges makeGRangesFromDataFrame
 #' @importFrom tibble as_data_frame
-readDNAmethylation <- function(files, cases, summarizedExperiment = TRUE, platform){
+readDNAmethylation <- function(
+  files,
+  cases,
+  summarizedExperiment = TRUE,
+  platform
+){
   if (missing(cases)) cases <- NULL
+
+
   if (grepl("OMA00",platform)) {
     pb <- txtProgressBar(min = 0, max = length(files), style = 3)
     for (i in seq_along(files)) {
@@ -702,6 +780,48 @@ readDNAmethylation <- function(files, cases, summarizedExperiment = TRUE, platfo
     setDF(df)
     rownames(df) <- df$Composite.Element.REF
     df$Composite.Element.REF <- NULL
+  } else if (all(grepl("methylation_array.sesame.level3betas", files))){
+    # methylation_array.sesame.level3betas has only two columns with not header
+
+    x <- plyr::alply(files,1, function(f) {
+      data <- fread(
+        f,
+        header = FALSE,
+        sep = "\t",
+        stringsAsFactors = FALSE,
+        skip = 0,
+        colClasses = c(
+          "character", # CpG
+          "numeric" # beta value
+        )
+      )
+      setnames(data,gsub(" ", "\\.", colnames(data)))
+      if (!is.null(cases)) setnames(data,2,cases[which(f == files)])
+    }, .progress = "time")
+
+    print.header(paste0("Merging ", length(files)," files"),"subsection")
+
+    # Just check if the data is in the same order, since we will not merge
+    # the data frames to save memory
+    stopifnot(all(unlist(x %>% map(function(y){all(y[,1] ==  x[[1]][,1])}) )))
+
+    df <- x %>%  map_df(2)
+    colnames(df) <- x %>%  map_chr(.f = function(y) colnames(y)[2])
+    df <- data.matrix(df)
+    rownames(df) <- setDF(x[[1]])[,1,drop = T]
+
+    if (summarizedExperiment) {
+      df <- makeSEFromDNAMethylationMatrix(
+        betas = df,
+        genome = "hg38",
+        met.platform = "EPIC"
+      )
+    } else {
+      setDF(df)
+      rownames(df) <- df$Composite.Element.REF
+      df$Composite.Element.REF <- NULL
+    }
+
   } else {
     skip <- ifelse(all(grepl("hg38",files)), 0,1)
     colClasses <- NULL
@@ -743,7 +863,6 @@ readDNAmethylation <- function(files, cases, summarizedExperiment = TRUE, platfo
     df <- x %>%  map_df(idx.dnam)
     colnames(df) <- x %>%  map_chr(.f = function(y) colnames(y)[idx.dnam])
     df <- bind_cols(x[[1]][,1:(idx.dnam-1)],df)
-
 
     if (summarizedExperiment) {
       if(skip == 0) {
@@ -966,8 +1085,6 @@ colDataPrepare <- function(barcode){
   message("Starting to add information to samples")
   ret <- NULL
 
-
-
   if(all(grepl("TARGET",barcode))) ret <- colDataPrepareTARGET(barcode)
   if(all(grepl("TCGA",barcode))) ret <- colDataPrepareTCGA(barcode)
   if(all(grepl("MMRF",barcode))) ret <- colDataPrepareMMRF(barcode)
@@ -1030,11 +1147,15 @@ colDataPrepare <- function(barcode){
     })
   }
 
-  if(any(ret$project_id == "CPTAC-3")) {
+  if(any(ret$project_id == "CPTAC-3",na.rm = T)) {
     idx <- sapply(gsub("-[[:alnum:]]{3}$","",barcode), function(x) {
       if(grepl(";",x = x)) x <- stringr::str_split(barcode[1],";")[[1]][1] # mixed samples
       grep(x,ret$bcr_patient_barcode)
     })
+  }
+
+  if(any(ret$project_id == "CMI-MBC",na.rm = T)) {
+    idx <- match(barcode,ret$bcr_patient_barcode)
   }
 
   ret <- ret[idx,]
@@ -1166,27 +1287,25 @@ makeSEfromTranscriptomeProfilingSTAR <- function(data, cases, assay.list){
   colData <-  colDataPrepare(cases)
 
   # one ensemblID can be mapped to multiple entrezgene ID
-  gene.location <- get.GRCh.bioMart("hg38")
-  gene.location <- gene.location[!duplicated(gene.location$ensembl_gene_id),]
+  gene.location <- get.GRCh.bioMart("hg38",as.granges = TRUE)
 
-  data$ensembl_gene_id <-  as.character(gsub("\\.[0-9]*","",data$`#gene`))
-  metrics <- subset(data, !grepl("ENSG", data$ensembl_gene_id))
-  data <- subset(data, grepl("ENSG", data$ensembl_gene_id))
-  found.genes <- table(data$ensembl_gene_id %in% gene.location$ensembl_gene_id)
+  metrics <- subset(data, !grepl("ENSG", data$gene_id))
+  data <- subset(data, grepl("ENSG", data$gene_id))
+  found.genes <- table(data$gene_id %in% gene.location$gene_id)
 
   if("FALSE" %in% names(found.genes))
     message(paste0("From the ", nrow(data), " genes we couldn't map ", found.genes[["FALSE"]]))
 
-  data <- merge(data, gene.location, by = "ensembl_gene_id")
-
   # Prepare data table
   # Remove the version from the ensembl gene id
   assays <- list(
-    data.matrix(data[,grep("unstranded",colnames(data))]),
+    data.matrix(data[,grep("^unstranded",colnames(data))]),
     data.matrix(data[,grep("stranded_first",colnames(data))]),
-    data.matrix(data[,grep("stranded_second",colnames(data))])
+    data.matrix(data[,grep("stranded_second",colnames(data))]),
+    data.matrix(data[,grep("fpkm_unstrand",colnames(data))]),
+    data.matrix(data[,grep("tpm_unstrand",colnames(data))])
   )
-  names(assays) <- c("unstranded","stranded_first","stranded_second")
+  names(assays) <- c("unstranded","stranded_first","stranded_second","fpkm_unstrand","tpm_unstrand")
   assays <- lapply(assays, function(x){
     colnames(x) <- NULL
     rownames(x) <- NULL
@@ -1194,16 +1313,9 @@ makeSEfromTranscriptomeProfilingSTAR <- function(data, cases, assay.list){
   })
 
   # Prepare rowRanges
-  rowRanges <- GRanges(
-    seqnames = paste0("chr", data$chromosome_name),
-    ranges = IRanges(start = data$start_position,
-                     end = data$end_position),
-    strand = data$strand,
-    ensembl_gene_id = data$ensembl_gene_id,
-    external_gene_name = data$external_gene_name,
-    original_ensembl_gene_id = data$`#gene`
-  )
-  names(rowRanges) <- as.character(data$ensembl_gene_id)
+  rowRanges <- gene.location[match(data$gene_id, gene.location$gene_id),]
+  names(rowRanges) <- as.character(data$gene_id)
+
   rse <- SummarizedExperiment(
     assays = assays,
     rowRanges = rowRanges,
@@ -1304,21 +1416,32 @@ readTranscriptomeProfiling <- function(
       if(!missing(cases))  colnames(df)[-1] <- cases
       if(summarizedExperiment) df <- makeSEfromTranscriptomeProfiling(df,cases,workflow.type)
     } else  if(grepl("STAR",workflow.type)){
+
+      # read files that has 4 not necessary rows, and has several columns
+      # gene_id gene_name gene_type
+      # unstranded stranded_first stranded_second tpm_unstranded fpkm_unstranded
       x <- plyr::alply(files,1, function(f) {
         readr::read_tsv(
           file = f,
           col_names = TRUE,
           progress = FALSE,
-          show_col_types = FALSE
+          show_col_types = FALSE,
+          skip = 1
         )
       }, .progress = "time")
 
+      # bind all counts and then add the gene metadata
       suppressMessages({
-        df <- x %>%  map_dfc(.f = function(y) y[,2:4])
-        df <- bind_cols(x[[1]][,1],df)
+        df <- x %>%  map_dfc(.f = function(y) y[,4:8])
+        df <- bind_cols(x[[1]][,1:3],df)
       })
 
-      if(!missing(cases))  colnames(df)[-1] <- sapply(cases, function(x){stringr::str_c(c("unstranded_","stranded_first_", "stranded_second_"),x)}) %>% as.character()
+      # Adding barcodes to columns names, if user wants a dataframe
+      if(!missing(cases))  {
+        colnames(df)[-c(1:3)] <- sapply(cases, function(x){
+          stringr::str_c(c("unstranded_","stranded_first_", "stranded_second_","tpm_unstranded_","fpkm_unstranded_"),x)}
+        ) %>% as.character()
+      }
       if(summarizedExperiment) df <- makeSEfromTranscriptomeProfilingSTAR(df,cases,workflow.type)
     }
   } else if(grepl("miRNA", workflow.type, ignore.case = TRUE) & grepl("miRNA", data.type, ignore.case = TRUE)) {
