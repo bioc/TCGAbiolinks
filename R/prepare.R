@@ -86,7 +86,7 @@ GDCprepare <- function(
           "Clinical Supplement",
           "Masked Somatic Mutation",
           "Biospecimen Supplement"
-          )
+        )
         )
     )
 
@@ -400,6 +400,7 @@ readExonQuantification <- function (files, cases, summarizedExperiment = TRUE){
       return(x)
     })
     rowRanges <- makeGRangesFromDataFrame(df)
+    message("Available assays in SummarizedExperiment : \n  => ",paste(names(assays), collapse = "\n  => "))
     rse <- SummarizedExperiment(
       assays = assays,
       rowRanges = rowRanges,
@@ -623,6 +624,7 @@ makeSEfromGeneExpressionQuantification <- function(
     return(x)
   })
 
+  message("Available assays in SummarizedExperiment : \n  => ",paste(names(assays), collapse = "\n  => "))
   rse <- SummarizedExperiment(
     assays = assays,
     rowRanges = rowRanges,
@@ -651,6 +653,7 @@ makeSEFromDNAMethylationMatrix <- function(
   betas <- betas[rownames(betas) %in% names(rowRanges),,drop = FALSE]
   betas <- betas[names(rowRanges),,drop = FALSE]
   assay <- data.matrix(betas)
+
   betas <- SummarizedExperiment(
     assays = assay,
     rowRanges = rowRanges,
@@ -1092,9 +1095,17 @@ colDataPrepare <- function(barcode){
   # How to deal with mixed samples "C3N-02003-01;C3N-02003-021" ?
   # Check if this breaks the pacakge
   if(any(grepl("C3N-|C3L-",barcode))) {
-    ret <- data.frame(sample =  sapply(barcode, function(x) stringr:::str_split(x,";") %>% unlist()) %>% unlist %>% unique,stringsAsFactors = FALSE)
+    ret <- data.frame(
+      sample =  sapply(barcode, function(x) stringr::str_split(x,";") %>% unlist()) %>%
+        unlist %>% unique,stringsAsFactors = FALSE
+    )
   }
-  if(is.null(ret)) ret <- data.frame(sample = barcode %>% unique,stringsAsFactors = FALSE)
+  if(is.null(ret)) {
+    ret <- data.frame(
+      sample = barcode %>% unique,
+      stringsAsFactors = FALSE
+    )
+  }
 
   message(" => Add clinical information to samples")
   # There is a limitation on the size of the string, so this step will be splited in cases of 100
@@ -1316,6 +1327,8 @@ makeSEfromTranscriptomeProfilingSTAR <- function(data, cases, assay.list){
   rowRanges <- gene.location[match(data$gene_id, gene.location$gene_id),]
   names(rowRanges) <- as.character(data$gene_id)
 
+
+  message("Available assays in SummarizedExperiment : \n  => ",paste(names(assays), collapse = "\n  => "))
   rse <- SummarizedExperiment(
     assays = assays,
     rowRanges = rowRanges,
@@ -1369,6 +1382,7 @@ makeSEfromTranscriptomeProfiling <- function(data, cases, assay.list){
     original_ensembl_gene_id = data$X1
   )
   names(rowRanges) <- as.character(data$ensembl_gene_id)
+  message("Available assays in SummarizedExperiment : \n  => ",paste(names(assays), collapse = "\n  => "))
   rse <- SummarizedExperiment(
     assays = assays,
     rowRanges = rowRanges,
@@ -1525,8 +1539,9 @@ makeSEfromGeneLevelCopyNumber <- function(df, cases){
       rownames(ret) <- NULL
       ret
     })
-  names(assays) <-   c("copy_number","min_copy_number", "max_copy_number")
+  names(assays) <- c("copy_number","min_copy_number", "max_copy_number")
 
+  message("Available assays in SummarizedExperiment : \n  => ",paste(names(assays), collapse = "\n  => "))
   rse <- SummarizedExperiment(assays = assays, rowRanges = rowRanges, colData = colData)
   return(rse)
 }

@@ -29,12 +29,6 @@ NULL
 #' @format A data frame with 200 rows and 7 variables
 NULL
 
-#' BRCA_rnaseqv2
-#' @docType data
-#' @keywords internal
-#' @name BRCA_rnaseqv2
-#' @format A data frame with 200 rows (genes) and 1172 variables (samples)
-NULL
 
 
 #' TCGA data matrix BRCA
@@ -178,7 +172,7 @@ NULL
 #' A numeric vector with stem cell (SC)-derived embryoid bodies (EB) signature trained on PCBC's dataset
 #' @docType data
 #' @keywords internal
-#' @name DE_PCBC_stemSig
+#' @name EB_PCBC_stemSig
 #' @format A numeric vector with 12956 genes
 NULL
 
