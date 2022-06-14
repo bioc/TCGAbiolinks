@@ -51,6 +51,7 @@
 #'    )
 #' }
 #' @return Shows the output from the GDC transfer tools
+#' @author Tiago Chedraoui Silva
 GDCdownload <- function(
     query,
     token.file,
@@ -108,8 +109,14 @@ GDCdownload <- function(
             # Creates a file with the gdc manifest format
             readr::write_delim(manifest,"gdc_manifest.txt",delim = "\t")
 
-            cmd <- paste0(gdc.client.bin, " download -m gdc_manifest.txt")
+            readr::write_delim(manifest,"gdc_client_configuration.dtt",delim = "\t")
+            readr::write_lines(
+                c("[download]","retry_amount = 6",paste0("dir =",path)),
+                file = "gdc_client_configuration.dtt"
+            )
+            cmd <- paste0(gdc.client.bin, " download -m gdc_manifest.txt --config gdc_client_configuration.dtt")
 
+            dir.create(path,recursive = TRUE,showWarnings = FALSE)
             if(!missing(token.file)) cmd <- paste0(cmd," -t ", token.file)
 
             # Download all the files in the manifest using gdc client
@@ -120,9 +127,6 @@ GDCdownload <- function(
                 system(cmd)
             }, warning = function(w) {
             }, error = function(e) {
-            }, finally = {
-                # moving the file to make it more organized
-                for(i in manifest$id) move(i,file.path(path,i))
             })
 
         } else if (nrow(manifest) != 0 & method =="api"){
@@ -225,7 +229,7 @@ GDCdownload.by.chunk <- function(
         end <- ifelse(((idx + 1) * step) > nrow(manifest), nrow(manifest),((idx + 1) * step))
         manifest.aux <- manifest[((idx * step) + 1):end,]
         size <- humanReadableByteCount(sum(as.numeric(manifest.aux$size)))
-        name.aux <- gsub(".tar",paste0("_",idx,".tar"),name)
+        name.aux <- gsub("\\.tar",paste0("_",idx,".tar"),name)
         message(
             paste0(
                 "Downloading chunk ", idx + 1, " of ", ceiling(nrow(manifest)/step) ,
@@ -289,7 +293,9 @@ GDCdownload.aux <- function(
             if(nrow(manifest) > 1) {
                 move(file,file.path(path,file))
             }
-            if(nrow(manifest) == 1) move(file,file.path(path,id,file))
+            if(nrow(manifest) == 1) {
+                move(file,file.path(path,id,file))
+            }
         }
         return(1)
     }, warning = function(w) {
