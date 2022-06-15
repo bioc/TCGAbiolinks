@@ -481,7 +481,7 @@ readSimpleNucleotideVariationMaf <- function(files){
                 miRNA = col_character(),
                 TSL = col_integer(),
                 HGVS_OFFSET = col_integer()
-                ),
+            ),
             progress = TRUE
         )
     })
@@ -1116,7 +1116,7 @@ colDataPrepare <- function(barcode){
     if(all(grepl("MMRF",barcode))) ret <- colDataPrepareMMRF(barcode)
 
     # How to deal with mixed samples "C3N-02003-01;C3N-02003-021" ?
-    # Check if this breaks the pacakge
+    # Check if this breaks the package
     if(any(grepl("C3N-|C3L-",barcode))) {
         ret <- data.frame(
             sample =  sapply(barcode, function(x) stringr::str_split(x,";") %>% unlist()) %>%
@@ -1184,10 +1184,25 @@ colDataPrepare <- function(barcode){
     }
 
     if(any(ret$project_id == "CPTAC-3",na.rm = T)) {
-        idx <- sapply(gsub("-[[:alnum:]]{3}$","",barcode), function(x) {
-            if(grepl(";",x = x)) x <- stringr::str_split(barcode[1],";")[[1]][1] # mixed samples
-            grep(x,ret$bcr_patient_barcode)
-        })
+
+        # only merge mixed samples
+        mixed.samples <- grep(";",barcode,value = T)
+        if(length(mixed.samples) > 0){
+            mixed.samples <- unique(unlist(str_split(mixed.samples,";")))
+
+            ret.mixed.samples <- ret %>% dplyr::filter(sample_submitter_id %in% mixed.samples) %>%
+                dplyr::group_by(submitter_id,sample_type) %>%
+                dplyr::summarise_all(~trimws(paste(unique(.), collapse = ';'))) %>%
+                as.data.frame()
+            ret <- rbind(ret.mixed.samples,ret)
+        }
+        idx <- match(barcode,ret$bcr_patient_barcode)
+
+        #idx <- sapply(gsub("-[[:alnum:]]{3}$","",barcode), function(x) {
+        #    if(grepl(";",x = x)) x <- stringr::str_split(x[1],";")[[1]][1] # mixed samples
+        #    grep(x,ret$bcr_patient_barcode)
+        #})
+
     }
 
     if(any(ret$project_id == "CMI-MBC",na.rm = T)) {

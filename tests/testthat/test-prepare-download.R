@@ -136,7 +136,7 @@ test_that("Non TCGA data is processed", {
     #data <- GDCprepare(query)
 })
 
-test_that("Gene Level Copy Number is being correclty prepare", {
+test_that("Gene Level Copy Number is being correctly prepare", {
     skip_on_bioc()
     skip_if_offline()
 
@@ -150,12 +150,7 @@ test_that("Gene Level Copy Number is being correclty prepare", {
     GDCdownload(query,directory = "ex")
     data <- GDCprepare(query,directory = "ex")
 
-    files <- dir("ex",pattern = "focal_score",recursive = TRUE,full.names = TRUE)
-    raw.data <- readr::read_tsv(files)
-    idx <- match(c( "79a12e57-0154-4de3-a6a4-80b6323b7cb3",
-                    "cfd4127e-cd08-4f8c-b5b2-e440b452e044"),
-                 colnames(raw.data))
-    expect_true(all(substr(colnames(data)[idx],1,12) == c("TCGA-A6-5664","TCGA-AY-A71X")))
+    expect_true(all(substr(colnames(data),1,12) == c("TCGA-OR-A5JD","TCGA-OR-A5J7")))
     unlink("ex",recursive = TRUE,force = TRUE)
 })
 
@@ -256,7 +251,7 @@ test_that("Preparing RRPA files with number of proteins works", {
 
     expect_message(object = {
         data_rppa <- GDCprepare(query_rppa)
-    },regexp = "Some files differ in the number of proteins, we will introduce NA for the missing values")
+    },regexp = "Some files have a  different number of proteins, we will introduce NA for the missing values")
 
     expect_true(is(data_rppa,"data.frame"))
 })
