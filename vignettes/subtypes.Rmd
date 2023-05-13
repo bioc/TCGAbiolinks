@@ -6,19 +6,19 @@ vignette: >
     %\VignetteEngine{knitr::rmarkdown}
     \usepackage[utf8]{inputenc}
 ---
-  
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(dpi = 300)
 knitr::opts_chunk$set(cache=FALSE)
 ```
-  
+
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 library(TCGAbiolinks)
 library(SummarizedExperiment)
 library(dplyr)
 library(DT)
 ```
-  
+
 
 TCGAbiolinks retrieved molecular subtypes information from TCGA samples.
 The functions `PanCancerAtlas_subtypes` and `TCGAquery_subtype` can be used to get the information tables.
@@ -34,10 +34,12 @@ Synapse has published a single file with all available molecular subtypes that h
 
 ```{r message=FALSE, warning=FALSE}
 subtypes <- PanCancerAtlas_subtypes()
-DT::datatable(subtypes,
-             filter = 'top',
-             options = list(scrollX = TRUE, keys = TRUE, pageLength = 5),
-             rownames = FALSE)
+DT::datatable(
+    data = subtypes,
+    filter = 'top',
+    options = list(scrollX = TRUE, keys = TRUE, pageLength = 5),
+    rownames = FALSE
+)
 ```
 
 The columns "Subtype_Selected" was selected as most prominent subtype classification (from the other columns)

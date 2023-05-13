@@ -171,15 +171,41 @@ TCGAquery_MatchedCoupledSampleTypes <- function(barcode,typesample){
 #' @importFrom data.table rbindlist as.data.table
 #' @importFrom jsonlite fromJSON
 #' @examples
-#' clinical <- GDCquery_clinic(project = "TCGA-ACC", type = "clinical", save.csv = TRUE)
-#' clinical <- GDCquery_clinic(project = "TCGA-ACC", type = "biospecimen", save.csv = TRUE)
+#' clinical <- GDCquery_clinic(
+#'    project = "TCGA-ACC",
+#'    type = "clinical",
+#'    save.csv = FALSE
+#'  )
+#' clinical <- GDCquery_clinic(
+#'    project = "TCGA-ACC",
+#'    type = "biospecimen",
+#'    save.csv = FALSE
+#' )
 #' \dontrun{
-#' clinical_cptac_3 <- GDCquery_clinic(project = "CPTAC-3", type = "clinical")
-#' clinical_cptac_2 <- GDCquery_clinic(project = "CPTAC-2", type = "clinical")
-#' clinical_HCMI_CMDC <- GDCquery_clinic(project = "HCMI-CMDC", type = "clinical")
-#' clinical_GCI_HTMCP_CC <- GDCquery_clinic(project = "CGCI-HTMCP-CC", type = "clinical")
-#' clinical <- GDCquery_clinic(project = "NCICCR-DLBCL", type = "clinical")
-#' clinical <- GDCquery_clinic(project = "ORGANOID-PANCREATIC", type = "clinical")
+#' clinical_cptac_3 <- GDCquery_clinic(
+#'    project = "CPTAC-3",
+#'    type = "clinical"
+#' )
+#' clinical_cptac_2 <- GDCquery_clinic(
+#'    project = "CPTAC-2",
+#'    type = "clinical"
+#' )
+#' clinical_HCMI_CMDC <- GDCquery_clinic(
+#'    project = "HCMI-CMDC",
+#'    type = "clinical"
+#' )
+#' clinical_GCI_HTMCP_CC <- GDCquery_clinic(
+#'    project = "CGCI-HTMCP-CC",
+#'    type = "clinical"
+#' )
+#' clinical <- GDCquery_clinic(
+#'    project = "NCICCR-DLBCL",
+#'    type = "clinical"
+#' )
+#' clinical <- GDCquery_clinic(
+#'    project = "ORGANOID-PANCREATIC",
+#'    type = "clinical"
+#' )
 #' }
 #' @return A data frame with the clinical information
 #' @author Tiago Chedraoui Silva
@@ -190,9 +216,14 @@ GDCquery_clinic <- function(
 ){
     checkProjectInput(project)
 
-    if (length(project) > 1) stop("Please, project should be only one valid project")
+    if (length(project) > 1) {
+        stop("Please, project should be only one valid project")
+    }
 
-    if (!grepl("clinical|Biospecimen",type,ignore.case = TRUE)) stop("Type must be clinical or Biospecimen")
+    if (!grepl("clinical|Biospecimen",type,ignore.case = TRUE)) {
+        stop("Type must be clinical or Biospecimen")
+    }
+
     baseURL <- "https://api.gdc.cancer.gov/cases/?"
     options.pretty <- "pretty=true"
 
@@ -313,13 +344,16 @@ GDCquery_clinic <- function(
                             } else {
                                 # HTMCP-03-06-02061 has two diagnosis
                                 x$submitter_id <- gsub("_diagnosis.*","",x$submitter_id)
+                                # If there are two rows for the same submitter_id
+                                # we will collapse them into one single row
+                                # concatanating all columns using ;
                                 aux <- x %>% dplyr::group_by(submitter_id) %>%
-                                    dplyr::summarise_each(funs(paste(unique(.), collapse = ";")))
+                                    summarise(across(everything(),~ paste(unique(.), collapse = ";")))
                                 aux$treatments <- list(dplyr::bind_rows(x$treatments))
                                 aux
                             }
                         }
-                    ),fill = T
+                    ), fill = TRUE
                 )
                 #df$submitter_id <- gsub("^d|_diagnosis|diag-|-DX|-DIAG|-diagnosis","", df$submitter_id)
                 # ^d ORGANOID-PANCREATIC
@@ -469,7 +503,7 @@ GDCprepare_clinic <- function(
     }
 
     # Get all the clincal xml files
-    source <- ifelse(query$legacy,"legacy","harmonized")
+    source <- "harmonized"
     files <- file.path(
         query$results[[1]]$project, source,
         gsub(" ","_",query$results[[1]]$data_category),
@@ -590,10 +624,7 @@ GDCprepare_clinic <- function(
     }
 
     # Converting factor to numeric and double
-    out <- clin %>%
-        dplyr::mutate_all(
-            .funs = ~ type.convert(as.character(.), as.is = TRUE, numerals = "warn.loss")
-        )
+    out <- clin |> type.convert(as.is = TRUE, numerals = "warn.loss")
 
     # Change columns back to factor
     for (i in colnames(out)[!grepl("has_",colnames(out))]) {
