@@ -153,7 +153,6 @@ GDCquery <- function(
         workflow.type,
         access,
         platform,
-        file.type,
         barcode,
         data.format,
         experimental.strategy,
@@ -168,31 +167,31 @@ GDCquery <- function(
         } else if(all(sample.type == FALSE)) {
             sample.type <- NA
         }
+
         if(missing(data.type)) {
             data.type <- NA
         } else if(data.type == FALSE) {
             data.type <- NA
         }
+
         if(missing(barcode)) {
             barcode <- NA
         } else if(length(barcode) == 1) {
             if(barcode == FALSE) barcode <- NA
         }
+
         if(missing(platform)) {
             platform <- NA
         } else if(any(platform == FALSE)) {
             platform <- NA
         }
-        if(missing(file.type)) {
-            file.type <- NA
-        } else if(file.type == FALSE) {
-            file.type <- NA
-        }
+
         if(missing(workflow.type)) {
             workflow.type <- NA
         } else if(workflow.type == FALSE) {
             workflow.type <- NA
         }
+
         if(missing(experimental.strategy)) {
             experimental.strategy <- NA
         } else if(experimental.strategy == FALSE) {
@@ -203,6 +202,7 @@ GDCquery <- function(
         } else if(access == FALSE) {
             access <- NA
         }
+
         if(missing(data.format)) {
             data.format <- NA
         } else if(data.format == FALSE) {
@@ -226,18 +226,25 @@ GDCquery <- function(
             data.type = data.type,
             workflow.type = workflow.type,
             platform = platform,
-            file.type = file.type,
             files.access = access,
             experimental.strategy = experimental.strategy,
             sample.type = sample.type
         )
         message("ooo Project: ", proj)
+        original_timeout <- getOption('timeout')
+        options(timeout=600)
         json  <- tryCatch(
             getURL(url,fromJSON,timeout(600),simplifyDataFrame = TRUE),
             error = function(e) {
                 message(paste("Error: ", e, sep = " "))
                 message("We will retry to access GDC!")
-                fromJSON(content(getURL(url,GET,timeout(600)), as = "text", encoding = "UTF-8"), simplifyDataFrame = TRUE)
+                fromJSON(
+                    content(
+                        getURL(url,GET,timeout(600)),
+                        as = "text",
+                        encoding = "UTF-8"
+                    ), simplifyDataFrame = TRUE
+                )
             }
         )
         if(json$data$pagination$count == 0) {
@@ -247,7 +254,6 @@ GDCquery <- function(
                 data.type = data.type,
                 workflow.type = NA,
                 platform = NA,
-                file.type = file.type,
                 experimental.strategy = experimental.strategy,
                 files.access = access,
                 sample.type = sample.type
@@ -261,6 +267,7 @@ GDCquery <- function(
                 }
             )
         }
+        options(timeout=original_timeout)
 
 
         json$data$hits$acl <- NULL
@@ -332,8 +339,12 @@ GDCquery <- function(
             message("ooo By experimental.strategy")
             results <- results[tolower(results$experimental_strategy) %in% tolower(experimental.strategy),]
         } else {
-            message(paste0("The argument experimental_strategy does not match any of the results.\nPossible values:",
-                           paste(unique(results$experimental_strategy),collapse = "\n=>")))
+            message(
+                paste0(
+                    "The argument experimental_strategy does not match any of the results.\nPossible values:",
+                    paste(unique(results$experimental_strategy),collapse = "\n=>")
+                )
+            )
         }
     }
 
@@ -342,8 +353,12 @@ GDCquery <- function(
             message("ooo By data.format")
             results <- results[tolower(results$data_format) %in% tolower(data.format),]
         } else {
-            message(paste0("The argument experimental_strategy does not match any of the results.\nPossible values:",
-                           paste(unique(results$data_format),collapse = "\n=>")))
+            message(
+                paste0(
+                    "The argument experimental_strategy does not match any of the results.\nPossible values:",
+                    paste(unique(results$data_format),collapse = "\n=>")
+                )
+            )
         }
     }
 
@@ -367,57 +382,12 @@ GDCquery <- function(
         results <- results[results$analysis_workflow_type %in% workflow.type,]
     }
 
-
-    # Filter by file.type
-    if(!is.na(file.type)){
-        message("ooo By file.type")
-        pat <- file.type
-        invert <- FALSE
-
-        # RNA-seq
-        if(file.type == "normalized_results") pat <- "normalized_results"
-        if(file.type == "results") pat <- "[^normalized_]results"
-
-
-        if(file.type == "nocnv_hg18" | file.type == "nocnv_hg18.seg") pat <- "nocnv_hg18"
-        if(file.type == "cnv_hg18" | file.type == "hg18.seg") pat <- "[^nocnv_]hg18.seg"
-        if(file.type == "nocnv_hg19" | file.type == "nocnv_hg19.seg") pat <- "nocnv_hg19"
-        if(file.type == "cnv_hg19" | file.type == "hg19.seg") pat <- "[^nocnv_]hg19.seg"
-
-        # miRNA-seq
-        # examples:
-        # TCGA-E9-A1R5-01A-11R-A14L-13.mirna.quantification.txt
-        if(file.type == "mirna") {
-            pat <-  "hg19.*mirna"
-            invert <- TRUE
-        }
-        # TCGA-F5-6464-01A-11H-1735-13.hg19.mirna.quantification.txt
-        if(file.type == "hg19.mirna") pat <- "hg19.mirna"
-
-        # TCGA-AC-A4ZE-01A-11R-A41G-13.hg19.mirbase20.mirna.quantification.txt
-        if(file.type == "hg19.mirbase20.mirna") pat <- "hg19.mirbase20.mirna"
-
-        # TCGA-CJ-4878-01A-01R-1304-13.isoform.quantification.txt
-        if(file.type == "hg19.isoform") pat <- "hg19.*isoform"
-        if(file.type == "isoform") {
-            pat <-  "hg19.*isoform"
-            invert <- TRUE
-        }
-        idx <- grep(pat,results$file_name,invert = invert)
-        if(length(idx) == 0) {
-            print(knitr::kable(sort(results$file_name)[1:10],col.names = "Files"))
-            stop("We were not able to filter using this file type. Examples of available files are above. Please check the vignette for possible entries")
-        }
-        results <- results[idx,]
-    }
-
     # get barcode of the samples
     # 1) Normally for each sample we will have only single information
     # however the mutation call uses both normal and tumor which are both
     # reported by the API
     if(!data.category %in% c(
         "Clinical",
-        "Copy Number Variation",
         "Biospecimen",
         "Other",
         "Simple Nucleotide Variation",
@@ -495,11 +465,12 @@ GDCquery <- function(
         # Auxiliary test files does not have information linked toit.
         # get frm file names
         results$cases <- str_extract_all(results$file_name,"TCGA-[:alnum:]{2}-[:alnum:]{4}") %>% unlist
-    } else if(data.category %in% c(
-        "Copy Number Variation",
-        "Simple nucleotide variation",
-        "Simple Nucleotide Variation")
-    ){
+    } else if(
+        data.category %in% c(
+            "Simple nucleotide variation",
+            "Simple Nucleotide Variation"
+        )
+    ) {
         cases <- plyr::laply(
             .data = results$cases,
             .fun =  function(x) {
@@ -589,12 +560,12 @@ GDCquery <- function(
     print.header("Checking data","subsection")
 
     message("ooo Checking if there are duplicated cases")
-    if(any(duplicated(results$cases))) {
+    if (any(duplicated(results$cases))) {
         message("Warning: There are more than one file for the same case. Please verify query results. You can use the command View(getResults(query)) in rstudio")
     }
 
     message("ooo Checking if there are results for the query")
-    if(nrow(results) == 0) stop("Sorry, no results were found for this query")
+    if (nrow(results) == 0) stop("Sorry, no results were found for this query")
 
     # Try ordering (needs dplyr 1.0 - still not published)
     results <- tryCatch({
@@ -621,7 +592,6 @@ GDCquery <- function(
         data.type = data.type,
         access = I(list(access)),
         experimental.strategy =  I(list(experimental.strategy)),
-        file.type = file.type,
         platform = I(list(platform)),
         sample.type = I(list(sample.type)),
         barcode = I(list(barcode)),
@@ -636,7 +606,6 @@ getGDCquery <- function(
         data.type,
         workflow.type,
         platform,
-        file.type,
         files.access,
         sample.type,
         experimental.strategy
@@ -714,11 +683,19 @@ expandBarcodeInfo <- function(barcode){
         ret <- ret[match(barcode,ret$barcode),]
     }
     if(any(grepl("TCGA",barcode))) {
-        ret <- data.frame(barcode = barcode,
-                          patient = substr(barcode, 1, 12),
-                          sample = substr(barcode, 1, 16),
-                          tissue.code = substr(barcode, 14, 15))
-        ret <- merge(ret,getBarcodeDefinition(), by = "tissue.code", sort = FALSE, all.x = TRUE)
+        ret <- data.frame(
+            barcode = barcode,
+            patient = substr(barcode, 1, 12),
+            sample = substr(barcode, 1, 16),
+            tissue.code = substr(barcode, 14, 15)
+        )
+        ret <- merge(
+            ret,
+            getBarcodeDefinition(),
+            by = "tissue.code",
+            sort = FALSE,
+            all.x = TRUE
+        )
         ret <- ret[match(barcode,ret$barcode),]
     }
     return(ret)
@@ -757,7 +734,11 @@ getBarcodeDefinition <- function(type = "TCGA"){
             "Cell Lines",
             "Primary Xenograft Tissue",
             "Cell Line Derived Xenograft Tissue")
-        aux <- data.frame(tissue.code = tissue.code,shortLetterCode,tissue.definition)
+        aux <- data.frame(
+            tissue.code = tissue.code,
+            shortLetterCode,
+            tissue.definition
+        )
     } else {
 
         tissue.code <- c(
