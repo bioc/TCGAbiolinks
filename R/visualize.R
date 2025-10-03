@@ -234,11 +234,18 @@ TCGAvisualize_SurvivalCoxNET <- function(
 #'     # selection of normal samples "TP"
 #'     group2 <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("TP"))
 #' pca <- TCGAvisualize_PCA(dataFilt,dataDEGsFiltLevel, ntopgenes = 200, group1, group2)
-TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes,group1, group2) {
+TCGAvisualize_PCA <- function(
+        dataFilt,dataDEGsFiltLevel,
+        ntopgenes,group1, group2
+) {
+
     ComparisonSelected <- "Normal vs Tumor"
-    TitlePlot <- paste0("PCA ", "top ", ntopgenes,
-                        " Up and down diff.expr genes between ",
-                        ComparisonSelected)
+
+    TitlePlot <- paste0(
+        "PCA ", "top ", ntopgenes,
+        " Up and down diff.expr genes between ",
+        ComparisonSelected
+    )
 
     dataFilt <- dataFilt[!duplicated(GenesCutID(rownames(dataFilt))),]
     rownames(dataFilt) <- GenesCutID(rownames(dataFilt))
@@ -255,25 +262,33 @@ TCGAvisualize_PCA <- function(dataFilt,dataDEGsFiltLevel ,ntopgenes,group1, grou
     #sampleColors <- rep(c(color1,color2), c(nsample1, nsample2))
     #sampleColors <- rep(c("blue","red"), c(length(group1),
     #                     length(group2)))
-    sampleColors <- c(rep("blue", length(group1)),
-                      rep("red", length(group2)))
-
+    sampleColors <- c(
+        rep("blue", length(group1)),
+        rep("red", length(group2))
+    )
 
     names(sampleColors) <- colnames(expr2)
-    cancer.pca <- stats::prcomp(t(expr2),cor = TRUE)
+    cancer.pca <- stats::prcomp(t(expr2))
 
-
-    g <- ggbiplot(cancer.pca, obs.scale = 1, var.scale = 1,
-                  groups = sampleColors, ellipse = TRUE, circle = FALSE)
-    g <- g + scale_colour_manual(name = "",
-                                 values = c("blue" = "blue","red" = "red"))
-    with(g,
-         g <- g + geom_point(aes(colour = sampleColors), size = 3)
+    g <- ggbiplot(
+        cancer.pca,
+        obs.scale = 1,
+        var.scale = 1,
+        groups = sampleColors,
+        ellipse = TRUE,
+        circle = FALSE
     )
-    #shape = tabClusterNew$Study)
+
+    g <- g + scale_colour_manual(
+        name = "",
+        values = c("blue" = "blue","red" = "red"
+        ))
+
+    g <- g + geom_point(aes(colour = sampleColors), size = 3)
     g <- g + theme(legend.direction = 'horizontal',  legend.position = 'top')
     g <- g + ggtitle(TitlePlot)
     print(g)
+
     return(cancer.pca)
 }
 
