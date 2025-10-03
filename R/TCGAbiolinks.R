@@ -62,13 +62,21 @@ NULL
 #' #get gene length and GC content for all IDs
 #'
 #' step <- 500
-#' geneInfoHT <- plyr::adply(seq(1,length(biomart_getID$ensembl_gene_id),step),.margins = 1,.fun = function(x){
+#' geneInfoHT <- plyr::adply(
+#' seq(1,length(biomart_getID$ensembl_gene_id),step),
+#' .margins = 1,.fun = function(x){
 #'     begin <- x
-#'    end <- x + step
-#'     if(end > length(biomart_getID$ensembl_gene_id)) end <- length(biomart_getID$ensembl_gene_id)
+#'     end <- x + step
+#'     if(end > length(biomart_getID$ensembl_gene_id)) {
+#'       end <- length(biomart_getID$ensembl_gene_id)
+#'     }
 #'     file <- paste0("geneInfoHT_from_",begin,"_to_",end,".rda")
 #'     if(!file.exists(file)){
-#'         df <- getGeneLengthAndGCContent(biomart_getID$ensembl_gene_id[begin:end] , org="hsa", mode = c("biomart"))
+#'         df <- getGeneLengthAndGCContent(
+#'             biomart_getID$ensembl_gene_id[begin:end] ,
+#'             org = "hsa",
+#'             mode = c("biomart")
+#'         )
 #'         save(df,file = file)
 #'     } else {
 #'         df <- get(load(file))
