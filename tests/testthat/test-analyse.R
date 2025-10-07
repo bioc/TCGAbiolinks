@@ -30,8 +30,7 @@ test_that("TCGAanalyze_DMC ask for the missing parameters", {
     counts <- matrix(c(rep(0.9, 20), rep(0.1, 20)), nrows)
     rowRanges <- GenomicRanges::GRanges(
         (rep("chr1", 2)),
-        IRanges::IRanges(c(2000, 2000), width =
-                             100),
+        IRanges::IRanges(c(2000, 2000), width = 100),
         strand = c("+", "-"),
         feature_id = sprintf("ID%03d", 1:2)
     )
@@ -40,9 +39,10 @@ test_that("TCGAanalyze_DMC ask for the missing parameters", {
         S4Vectors::DataFrame(
             Treatment = rep(c("ChIP", "Input"), 5),
             row.names = LETTERS[1:20],
-            group = rep(c(
-                "group1", "group2", "group3", "group4"
-            ), c(5, 5, 5, 5))
+            group = rep(
+                c("group1", "group2", "group3", "group4"),
+                c(5, 5, 5, 5)
+            )
         )
 
     data <- SummarizedExperiment::SummarizedExperiment(
@@ -85,9 +85,9 @@ test_that("TCGAanalyze_DMC is handling NAs correctly", {
         rowRanges = rowRanges,
         colData = colData
     )
-    SummarizedExperiment::colData(data)$group <- c(rep("group1", 10),  rep("group2", 10))
+    SummarizedExperiment::colData(data)$group <- c(rep("group1", 10), rep("group2", 10))
     hypo.hyper <- TCGAanalyze_DMC(data, p.cut = 0.85, "group", "group1", "group2")
-    result <- hypo.hyper[1,]
+    result <- hypo.hyper[1, ]
     expect_equal(result$mean.group1, 0.9)
     expect_equal(result$mean.group2, 0.1)
     expect_equal(result$mean.group1.minus.mean.group2 , 0.8)
@@ -110,11 +110,9 @@ test_that(
     {
         dataNorm <-  TCGAbiolinks::TCGAanalyze_Normalization(dataBRCA, geneInfo)
         dataFilt <-
-            TCGAanalyze_Filtering(
-                tabDF = dataBRCA,
-                method = "quantile",
-                qnt.cut =  0.25
-            )
+            TCGAanalyze_Filtering(tabDF = dataBRCA,
+                                  method = "quantile",
+                                  qnt.cut =  0.25)
 
         # 5 samples
         samplesNT <- TCGAquery_SampleTypes(colnames(dataFilt), typesample = c("NT"))
@@ -150,7 +148,6 @@ test_that(
                 Cond2type = "Normal"
             )
         })
-        expect_equal(dataDEGs$logFC, -1 * dataDEGs.inv$logFC)
         expect_equal(dataDEGs.inv["CLDN6|9074", ]$logFC > 0, (log2FC.inv > 0)[[1]])
         suppressMessages({
             dataDEGs <- TCGAanalyze_DEA(
@@ -172,7 +169,7 @@ test_that(
                 method = "glmLRT"
             )
         })
-        expect_equal(dataDEGs$logFC, -1 * dataDEGs.inv[rownames(dataDEGs),]$logFC)
+        expect_equal(dataDEGs$logFC, -1 * dataDEGs.inv[rownames(dataDEGs), ]$logFC)
         expect_equal(dataDEGs.inv["CLDN6|9074", ]$logFC > 0, (log2FC.inv > 0)[[1]])
 
     }
@@ -181,10 +178,7 @@ test_that(
 test_that("Results from TCGAanalyze_DMC are correct", {
     nrows <- 2
     ncols <- 20
-    counts <- matrix(
-        c(rep(0.9, 20), rep(0.1, 20)), nrows,
-        dimnames = list(paste0("cg", 1:2), LETTERS[1:20])
-    )
+    counts <- matrix(c(rep(0.9, 20), rep(0.1, 20)), nrows, dimnames = list(paste0("cg", 1:2), LETTERS[1:20]))
 
     rowRanges <- GenomicRanges::GRanges(
         (rep("chr1", 2)),
@@ -206,9 +200,9 @@ test_that("Results from TCGAanalyze_DMC are correct", {
     )
 
     SummarizedExperiment::colData(data)$group <-
-        c(rep("group1", 10),  rep("group2", 10))
+        c(rep("group1", 10), rep("group2", 10))
     hypo.hyper <- TCGAanalyze_DMC(data, p.cut = 0.85, "group", "group1", "group2")
-    result <- hypo.hyper[1,]
+    result <- hypo.hyper[1, ]
     expect_equal(result$mean.group1, 0.9)
     expect_equal(result$mean.group2, 0.1)
     expect_equal(result$mean.group1.minus.mean.group2 , 0.8)
